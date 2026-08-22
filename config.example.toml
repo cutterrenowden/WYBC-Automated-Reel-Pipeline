@@ -1,0 +1,44 @@
+# copy to config.toml and tweak. cli flags beat this file, this file beats defaults.
+
+[paths]
+out_dir = "out"
+# only set these if ffmpeg isn't on PATH
+# ffmpeg = "C:/ffmpeg/bin/ffmpeg.exe"
+# ffprobe = "C:/ffmpeg/bin/ffprobe.exe"
+
+[asr]
+backend = "auto"          # auto | mlx | faster-whisper
+model = "large-v3-turbo"  # or a full hf repo id
+language = "en"           # "" to auto-detect
+compute_type = "int8"     # faster-whisper only, try float16 on cuda
+device = "auto"           # faster-whisper only
+
+[clips]
+count = 8
+min_seconds = 12.0
+max_seconds = 60.0
+lead_in = 2.0             # announcers call the play a beat late, so back up
+lead_out = 1.5
+pause_snap = 0.35         # only drift an edge into a gap at least this long
+match_threshold = 0.6     # below this a quote is considered unmatched
+
+[energy]
+enabled = false           # optional loudness assist, costs one ffmpeg pass
+window = 1.0              # seconds per rms sample
+percentile = 90.0         # windows above this get marked hot
+
+[prompt]
+profile = "sports"        # sports | generic
+max_words_per_window = 9000
+window_overlap_words = 400
+
+[llm]
+mode = "manual"           # manual = paste it yourself, api = spend money
+provider = "anthropic"    # anthropic | openai
+model = ""                # blank picks a sane default per provider
+
+[render]
+burn_subs = false         # leave off if you're reframing to 9:16 in resolve
+crf = 18
+preset = "medium"
+audio_bitrate = "192k"

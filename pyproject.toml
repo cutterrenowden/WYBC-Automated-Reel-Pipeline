@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reelpipe"
+version = "0.1.0"
+description = "cut reels out of long broadcasts using whisper + an llm"
+readme = "README.md"
+# otio has no 3.14 wheels yet, so cap it
+requires-python = ">=3.11,<3.14"
+# otio ships json only these days, the editorial adapters live in their own packages
+dependencies = ["opentimelineio>=0.17", "otio-fcp-adapter>=1.0", "otio-cmx3600-adapter>=1.0"]
+
+[project.optional-dependencies]
+# apple silicon: gpu whisper via mlx
+apple = ["mlx-whisper>=0.4"]
+# everywhere else: cpu/cuda whisper via ctranslate2
+generic = ["faster-whisper>=1.1"]
+# only needed if you pay per token instead of pasting
+api = ["openai>=1.40", "anthropic>=0.34"]
+dev = ["pytest>=8"]
+
+[project.scripts]
+reelpipe = "reelpipe.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
