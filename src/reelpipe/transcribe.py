@@ -1,0 +1,85 @@
+"""whisper backends. mlx on apple silicon, faster-whisper everywhere else."""
+
+from __future__ import annotations
+
+import importlib.util
+import platform
+
+from .transcript import Segment, Transcript, Word
+
+# mlx wants an hf repo, faster-whisper wants a short name
+MLX_REPOS = {"tiny": "mlx-community/whisper-tiny", "base": "mlx-community/whisper-base", "small": "mlx-community/whisper-small", "medium": "mlx-community/whisper-medium", "large-v3": "mlx-community/whisper-large-v3", "large-v3-turbo": "mlx-community/whisper-large-v3-turbo"}
+
+
+class AsrError(RuntimeError):
+    pass
+
+
+def installed(module):
+    return importlib.util.find_spec(module) is not None
+
+
+def is_apple_silicon():
+    return platform.system() == "Darwin" and platform.machine() == "arm64"
+
+
+def pick_backend(name="auto"):
+    if name == "auto":
+        if is_apple_silicon() and installed("mlx_whisper"):
+            return "mlx"
+        if installed("faster_whisper"):
+            return "faster-whisper"
+        extra = "apple" if is_apple_silicon() else "generic"
+        raise AsrError(f"no asr backend installed. try: pip install -e \".[{extra}]\"")
+    if name == "mlx" and not installed("mlx_whisper"):
+        raise AsrError("mlx-whisper isn't installed. apple silicon only: pip install -e \".[apple]\"")
+    if name == "faster-whisper" and not installed("faster_whisper"):
+        raise AsrError("faster-whisper isn't installed: pip install -e \".[generic]\"")
+    return name
+
+
+def transcribe(cfg, audio_path, duration=0.0):
+    backend = pick_backend(cfg.asr.backend)
+    language = cfg.asr.language or None
+    if backend == "mlx":
+        segments, detected = _mlx(cfg.asr.model, audio_path, language)
+    else:
+        segments, detected = _faster_whisper(cfg, audio_path, language)
+    total = duration or (segments[-1].end if segments else 0.0)
+    return Transcript(str(audio_path), total, detected or (language or ""), segments)
+
+
+def _mlx(model, audio_path, language):
+    import mlx_whisper
+
+    repo = model if "/" in model else MLX_REPOS.get(model, f"mlx-community/whisper-{model}")
+    result = mlx_whisper.transcribe(str(audio_path), path_or_hf_repo=repo, word_timestamps=True, language=language, verbose=None)
+    segments = [_segment(seg["start"], seg["end"], seg["text"], [(w["word"], w["start"], w["end"]) for w in seg.get("words", [])]) for seg in result.get("segments", [])]
+    return segments, result.get("language", "")
+
+
+def _faster_whisper(cfg, audio_path, language):
+    from faster_whisper import WhisperModel
+
+    model = WhisperModel(cfg.asr.model, device=cfg.asr.device, compute_type=cfg.asr.compute_type)
+    raw, info = model.transcribe(str(audio_path), word_timestamps=True, language=language, vad_filter=True)
+    segments = [_segment(seg.start, seg.end, seg.text, [(w.word, w.start, w.end) for w in (seg.words or [])]) for seg in raw]
+    return segments, getattr(info, "language", "") or ""
+
+
+def _segment(start, end, text, raw_words):
+    words = [Word(str(text_).strip(), float(begin), float(finish)) for text_, begin, finish in raw_words if str(text_).strip()]
+    # whisper sometimes drops word timings, fall back to the segment span
+    if not words and str(text).strip():
+        words = [Word(str(text).strip(), float(start), float(end))]
+    return Segment(float(start), float(end), str(text).strip(), words)
+
+
+def backend_report(cfg):
+    """for `reelpipe doctor`."""
+    rows = [("apple silicon", "yes" if is_apple_silicon() else "no"), ("mlx-whisper", "installed" if installed("mlx_whisper") else "missing"), ("faster-whisper", "installed" if installed("faster_whisper") else "missing")]
+    try:
+        rows.append(("chosen backend", pick_backend(cfg.asr.backend)))
+    except AsrError as err:
+        rows.append(("chosen backend", f"none ({err})"))
+    return rows
