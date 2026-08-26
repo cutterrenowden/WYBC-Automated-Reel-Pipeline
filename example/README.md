@@ -1,8 +1,6 @@
 # example: tyler gilbert no-hitter
 
-sample: [youtube](https://www.youtube.com/watch?v=WFlYE8F-_xo) (~7 min, 640x360). save it as `gilbert_nohitter.mp4` (not in this repo).
-
-this folder is a checked-in run of that video: cuts, captions, and resolve files. your own jobs still go to `out/` (gitignored).
+sample: [youtube](https://www.youtube.com/watch?v=WFlYE8F-_xo) (~7 min, 640x360). save it as `gilbert_nohitter.mp4`
 
 install: [python 3.13](https://www.python.org/downloads/), [ffmpeg](https://ffmpeg.org/download.html), [resolve](https://www.blackmagicdesign.com/products/davinciresolve) (optional). mac: [homebrew](https://brew.sh) then `brew install ffmpeg python@3.13`. see the [root README](../README.md).
 
