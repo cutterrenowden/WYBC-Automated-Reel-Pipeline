@@ -1,0 +1,22 @@
+TITLE: reels
+
+001  gilbertn V     C        00:00:00;00 00:00:31;12 00:00:00;00 00:00:31;12
+* FROM CLIP NAME:  01_first-mlb-start
+* FROM CLIP: file://gilbert_nohitter.mp4
+* OTIO TRUNCATED REEL NAME FROM: gilbert_nohitter.mp4
+002  gilbertn V     C        00:01:24;10 00:01:36;10 00:00:31;12 00:00:43;12
+* FROM CLIP NAME:  02_eight-straight-retired
+* FROM CLIP: file://gilbert_nohitter.mp4
+* OTIO TRUNCATED REEL NAME FROM: gilbert_nohitter.mp4
+003  gilbertn V     C        00:03:33;04 00:03:55;08 00:00:43;12 00:01:05;18
+* FROM CLIP NAME:  03_no-hitter-through-six
+* FROM CLIP: file://gilbert_nohitter.mp4
+* OTIO TRUNCATED REEL NAME FROM: gilbert_nohitter.mp4
+004  gilbertn V     C        00:04:17;05 00:04:57;25 00:01:05;18 00:01:46;08
+* FROM CLIP NAME:  04_peralta-at-the-wall
+* FROM CLIP: file://gilbert_nohitter.mp4
+* OTIO TRUNCATED REEL NAME FROM: gilbert_nohitter.mp4
+005  gilbertn V     C        00:06:03;26 00:06:23;04 00:01:46;08 00:02:05;18
+* FROM CLIP NAME:  05_gilbert-throws-a-no-hitter
+* FROM CLIP: file://gilbert_nohitter.mp4
+* OTIO TRUNCATED REEL NAME FROM: gilbert_nohitter.mp4

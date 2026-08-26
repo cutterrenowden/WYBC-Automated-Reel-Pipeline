@@ -1,0 +1,6 @@
+index,slug,title,start_tc,end_tc,start_s,end_s,duration_s,score,match,caption,hashtags,warnings
+1,01_first-mlb-start,first mlb start,00:00:00:00,00:00:31:12,0.000,31.420,31.420,7.0,1.00,"rookie first start. cutter, dp, punchout.",#Dbacks #NoHitter,
+2,02_eight-straight-retired,eight straight retired,00:01:24:10,00:01:36:09,84.340,96.340,12.000,6.0,1.00,8 straight. 5-0. first start.,#Dbacks,padded up to the 12s floor
+3,03_no-hitter-through-six,no-hitter through six,00:03:33:04,00:03:55:08,213.160,235.300,22.140,8.0,1.00,no-no through 6. you need one of those.,#NoHitter #Dbacks,
+4,04_peralta-at-the-wall,peralta at the wall,00:04:17:05,00:04:57:25,257.160,297.880,40.720,9.0,1.00,peralta at the wall. no-hitter lives.,#NoHitter #Dbacks,
+5,05_gilbert-throws-a-no-hitter,gilbert throws a no-hitter,00:06:03:26,00:06:23:05,363.840,383.140,19.300,10.0,1.00,first career start. no-hitter.,#NoHitter #Dbacks #MLB,

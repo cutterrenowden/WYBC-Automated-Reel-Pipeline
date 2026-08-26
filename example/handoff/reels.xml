@@ -1,0 +1,130 @@
+<?xml version="1.0" ?>
+<xmeml version="4">
+    <project>
+        <name>reels</name>
+        <children>
+            <sequence id="sequence-1">
+                <name>reels</name>
+                <duration>3764</duration>
+                <rate>
+                    <timebase>30</timebase>
+                    <ntsc>TRUE</ntsc>
+                </rate>
+                <media>
+                    <video>
+                        <format/>
+                        <track>
+                            <clipitem frameBlend="FALSE" id="clipitem-1">
+                                <file id="file-1">
+                                    <pathurl>file://gilbert_nohitter.mp4</pathurl>
+                                    <name>gilbert_nohitter.mp4</name>
+                                    <rate>
+                                        <timebase>30</timebase>
+                                        <ntsc>TRUE</ntsc>
+                                    </rate>
+                                    <duration>13111</duration>
+                                    <timecode>
+                                        <rate>
+                                            <timebase>30</timebase>
+                                            <ntsc>TRUE</ntsc>
+                                        </rate>
+                                        <string>00:00:00:00</string>
+                                        <frame>0</frame>
+                                        <displayformat>NDF</displayformat>
+                                    </timecode>
+                                    <media>
+                                        <video/>
+                                        <audio/>
+                                    </media>
+                                </file>
+                                <name>01_first-mlb-start</name>
+                                <rate>
+                                    <timebase>30</timebase>
+                                    <ntsc>TRUE</ntsc>
+                                </rate>
+                                <rate>
+                                    <timebase>30</timebase>
+                                    <ntsc>TRUE</ntsc>
+                                </rate>
+                                <duration>942</duration>
+                                <start>0</start>
+                                <end>942</end>
+                                <in>0</in>
+                                <out>942</out>
+                            </clipitem>
+                            <clipitem frameBlend="FALSE" id="clipitem-2">
+                                <file id="file-1"/>
+                                <name>02_eight-straight-retired</name>
+                                <rate>
+                                    <timebase>30</timebase>
+                                    <ntsc>TRUE</ntsc>
+                                </rate>
+                                <rate>
+                                    <timebase>30</timebase>
+                                    <ntsc>TRUE</ntsc>
+                                </rate>
+                                <duration>360</duration>
+                                <start>942</start>
+                                <end>1302</end>
+                                <in>2528</in>
+                                <out>2888</out>
+                            </clipitem>
+                            <clipitem frameBlend="FALSE" id="clipitem-3">
+                                <file id="file-1"/>
+                                <name>03_no-hitter-through-six</name>
+                                <rate>
+                                    <timebase>30</timebase>
+                                    <ntsc>TRUE</ntsc>
+                                </rate>
+                                <rate>
+                                    <timebase>30</timebase>
+                                    <ntsc>TRUE</ntsc>
+                                </rate>
+                                <duration>664</duration>
+                                <start>1302</start>
+                                <end>1966</end>
+                                <in>6388</in>
+                                <out>7052</out>
+                            </clipitem>
+                            <clipitem frameBlend="FALSE" id="clipitem-4">
+                                <file id="file-1"/>
+                                <name>04_peralta-at-the-wall</name>
+                                <rate>
+                                    <timebase>30</timebase>
+                                    <ntsc>TRUE</ntsc>
+                                </rate>
+                                <rate>
+                                    <timebase>30</timebase>
+                                    <ntsc>TRUE</ntsc>
+                                </rate>
+                                <duration>1220</duration>
+                                <start>1966</start>
+                                <end>3186</end>
+                                <in>7707</in>
+                                <out>8927</out>
+                            </clipitem>
+                            <clipitem frameBlend="FALSE" id="clipitem-5">
+                                <file id="file-1"/>
+                                <name>05_gilbert-throws-a-no-hitter</name>
+                                <rate>
+                                    <timebase>30</timebase>
+                                    <ntsc>TRUE</ntsc>
+                                </rate>
+                                <rate>
+                                    <timebase>30</timebase>
+                                    <ntsc>TRUE</ntsc>
+                                </rate>
+                                <duration>578</duration>
+                                <start>3186</start>
+                                <end>3764</end>
+                                <in>10904</in>
+                                <out>11482</out>
+                            </clipitem>
+                        </track>
+                    </video>
+                    <audio/>
+                </media>
+            </sequence>
+        </children>
+    </project>
+</xmeml>
