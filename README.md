@@ -10,15 +10,23 @@ can reframe to vertical in Resolve.
 You can drive the LLM step with an API key, or skip the API entirely and paste the prompt into a
 ChatGPT/Claude subscription you already pay for.
 
+Worked example: [example/](example/) — Gilbert no-hitter call at [`example/clips/05_gilbert-throws-a-no-hitter.mp4`](example/clips/05_gilbert-throws-a-no-hitter.mp4).
+
 ## Requirements
 
-- Python 3.11, 3.12, or 3.13. Not 3.14 yet, because OpenTimelineIO has no 3.14 wheels.
-- ffmpeg and ffprobe on your PATH.
-- Whisper runs locally, so a few GB of disk for models and some patience on CPU-only machines.
+- [Python](https://www.python.org/downloads/) 3.11, 3.12, or 3.13. Not 3.14 yet (OpenTimelineIO has no 3.14 wheels).
+- [ffmpeg](https://ffmpeg.org/download.html) (includes ffprobe) on your PATH.
+- [DaVinci Resolve](https://www.blackmagicdesign.com/products/davinciresolve) if you want the timeline handoff. Free version is enough.
+- An LLM for the pick step: paste into [ChatGPT](https://chatgpt.com) or [Claude](https://claude.ai), or use an [OpenAI](https://platform.openai.com/api-keys) / [Anthropic](https://console.anthropic.com) API key.
+- Whisper runs locally. First transcribe downloads a model (a few GB). CPU-only is slower.
 
 ## Setup
 
-Install ffmpeg and Python for your platform:
+Install ffmpeg and Python:
+
+- macOS: [Homebrew](https://brew.sh), then `brew install ffmpeg python@3.13`
+- Windows: [ffmpeg builds](https://www.gyan.dev/ffmpeg/builds/) via `winget install Gyan.FFmpeg`, [Python](https://www.python.org/downloads/) via `winget install Python.Python.3.13`
+- Linux: distro packages, or the [ffmpeg](https://ffmpeg.org/download.html) / [Python](https://www.python.org/downloads/) installers
 
 ```bash
 # macOS

@@ -1,0 +1,23 @@
+1
+00:00:00,000 --> 00:00:00,400
+away
+
+2
+00:00:02,000 --> 00:00:05,100
+center field Marte it's a no
+
+3
+00:00:05,100 --> 00:00:05,580
+hitter
+
+4
+00:00:10,520 --> 00:00:13,820
+Tyler Gilbert has thrown a no
+
+5
+00:00:13,820 --> 00:00:16,660
+hitter in his first career major league
+
+6
+00:00:16,660 --> 00:00:19,300
+start the first Diamondbacks

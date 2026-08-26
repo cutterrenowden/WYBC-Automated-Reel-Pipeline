@@ -1,0 +1,89 @@
+[
+  {
+    "index": 1,
+    "title": "first mlb start",
+    "start": 0.0,
+    "end": 31.42,
+    "duration": 31.42,
+    "score": 7.0,
+    "why": "sets up the night: rookie first start, then a dp and a k",
+    "caption": "rookie first start. cutter, dp, punchout.",
+    "hashtags": [
+      "#Dbacks",
+      "#NoHitter"
+    ],
+    "match": 1.0,
+    "warnings": [],
+    "slug": "01_first-mlb-start"
+  },
+  {
+    "index": 2,
+    "title": "eight straight retired",
+    "start": 84.34,
+    "end": 96.34,
+    "duration": 12.0,
+    "score": 6.0,
+    "why": "early dominance, 8 in a row, 5-0 lead in first mlb start",
+    "caption": "8 straight. 5-0. first start.",
+    "hashtags": [
+      "#Dbacks"
+    ],
+    "match": 1.0,
+    "warnings": [
+      "padded up to the 12s floor"
+    ],
+    "slug": "02_eight-straight-retired"
+  },
+  {
+    "index": 3,
+    "title": "no-hitter through six",
+    "start": 213.16,
+    "end": 235.3,
+    "duration": 22.14,
+    "score": 8.0,
+    "why": "first call of a no-hitter plus the defensive gem you need",
+    "caption": "no-no through 6. you need one of those.",
+    "hashtags": [
+      "#NoHitter",
+      "#Dbacks"
+    ],
+    "match": 1.0,
+    "warnings": [],
+    "slug": "03_no-hitter-through-six"
+  },
+  {
+    "index": 4,
+    "title": "peralta at the wall",
+    "start": 257.16,
+    "end": 297.88,
+    "duration": 40.72,
+    "score": 9.0,
+    "why": "the catch that saves the no-no, dad in the stands",
+    "caption": "peralta at the wall. no-hitter lives.",
+    "hashtags": [
+      "#NoHitter",
+      "#Dbacks"
+    ],
+    "match": 1.0,
+    "warnings": [],
+    "slug": "04_peralta-at-the-wall"
+  },
+  {
+    "index": 5,
+    "title": "gilbert throws a no-hitter",
+    "start": 363.84,
+    "end": 383.14,
+    "duration": 19.3,
+    "score": 10.0,
+    "why": "the call. first mlb start, no-hitter.",
+    "caption": "first career start. no-hitter.",
+    "hashtags": [
+      "#NoHitter",
+      "#Dbacks",
+      "#MLB"
+    ],
+    "match": 1.0,
+    "warnings": [],
+    "slug": "05_gilbert-throws-a-no-hitter"
+  }
+]
