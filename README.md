@@ -19,4 +19,7 @@ subtitle track.
 
 Example in [example/](example/).
 
+<img width="1156" height="771" alt="Screenshot 2026-08-27 at 4 49 09 PM" src="https://github.com/user-attachments/assets/03e7ace8-28e9-408f-8af0-9a3b00ad6e5c" />
+
+<img width="1156" height="767" alt="Screenshot 2026-08-27 at 4 49 29 PM" src="https://github.com/user-attachments/assets/4fe20437-2fb3-4ad9-888d-ae5e23652ec9" />
 
