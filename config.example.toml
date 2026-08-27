@@ -38,7 +38,8 @@ provider = "anthropic"    # anthropic | openai
 model = ""                # blank picks a sane default per provider
 
 [render]
-burn_subs = false         # leave off if you're reframing to 9:16 in resolve
+burn_subs = false         # draw captions into the picture. any ffmpeg build works
+vertical = false          # 9:16 center-crop at 1080x1920, captions sized for phones
 crf = 18
 preset = "medium"
 audio_bitrate = "192k"

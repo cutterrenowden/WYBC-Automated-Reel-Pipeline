@@ -6,7 +6,7 @@ import subprocess
 
 import pytest
 
-from reelpipe import media, pipeline
+from reelpipe import pipeline
 from reelpipe.config import Config
 
 pytestmark = pytest.mark.skipif(not shutil.which("ffmpeg") or not shutil.which("ffprobe"), reason="needs ffmpeg")
@@ -94,12 +94,27 @@ def test_clips_json_round_trips(job):
     assert rows[0]["duration"] > 0
 
 
-def test_burn_subs_renders_when_the_build_can(job):
+def probe_dims(path):
+    out = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=s=x:p=0", str(path)], capture_output=True, text=True, check=True)
+    return out.stdout.strip()
+
+
+def test_burned_captions_render_without_libass(job):
     cfg, handle = job
     cfg.render.burn_subs = True
+    cfg.render.preset = "ultrafast"
     pipeline.apply_selection(cfg, handle)
-    if not media.has_filter(cfg, "subtitles"):
-        with pytest.raises(media.MediaError, match="libass"):
-            pipeline.cut(cfg, handle)
-        return
-    assert all(path.stat().st_size > 1000 for path in pipeline.cut(cfg, handle))
+    rendered = pipeline.cut(cfg, handle)
+    for path in rendered:
+        assert probe_dims(path) == "640x360"
+        assert path.stat().st_size > 1000
+
+
+def test_vertical_render_is_9_16(job):
+    cfg, handle = job
+    cfg.render.burn_subs = True
+    cfg.render.vertical = True
+    cfg.render.preset = "ultrafast"
+    pipeline.apply_selection(cfg, handle)
+    for path in pipeline.cut(cfg, handle):
+        assert probe_dims(path) == "1080x1920"

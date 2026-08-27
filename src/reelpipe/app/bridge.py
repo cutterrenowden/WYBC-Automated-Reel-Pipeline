@@ -117,6 +117,7 @@ class Api:
             "energy_enabled": cfg.energy.enabled,
             "prompt_profile": cfg.prompt.profile,
             "render_burn_subs": cfg.render.burn_subs,
+            "render_vertical": cfg.render.vertical,
             "llm_mode": cfg.llm.mode,
             "llm_provider": cfg.llm.provider,
             "llm_model": cfg.llm.model,
@@ -320,6 +321,7 @@ class Api:
         row["ext"] = ext or ".mp4"
         row["kind"] = "audio" if ext == ".m4a" else "video"
         row["rendered"] = ext is not None
+        row["vertical"] = bool(cfg.render.vertical) and row["kind"] == "video"
         row["video"] = f"{self._job_url(job)}/clips/{clip.slug}{ext or '.mp4'}"
         row["poster"] = self._thumbnail(cfg, job, clip) if ext == ".mp4" else None
         return row
@@ -388,11 +390,14 @@ class Api:
         if "manually adjusted" not in clip.warnings:
             clip.warnings.append("manually adjusted")
         transcript = Transcript.load(job.transcript_json)
+        words = anchor.words_between(transcript, start, end)
         srt = job.clips_dir / f"{clip.slug}.srt"
-        subtitles.write_clip_srt(anchor.words_between(transcript, start, end), clip, srt)
+        subtitles.write_clip_srt(words, clip, srt)
         dest = job.clips_dir / f"{clip.slug}{'.m4a' if audio_only else '.mp4'}"
+        cues = subtitles.group(words) if cfg.render.burn_subs and not audio_only else None
+        frame = (info.get("width") or 1920, info.get("height") or 1080)
         try:
-            cut_mod.cut_clip(cfg, job.source, clip, dest, srt if cfg.render.burn_subs and not audio_only else None, audio_only=audio_only)
+            cut_mod.cut_clip(cfg, job.source, clip, dest, cues=cues, audio_only=audio_only, vertical=cfg.render.vertical and not audio_only, frame=frame)
         except media.MediaError as err:
             return {"error": str(err)}
         anchor.save(clips, job.clips_json)
@@ -448,6 +453,48 @@ class Api:
             webbrowser.open(str(url))
             return {"ok": True}
         return {"error": "refusing a non-http url"}
+
+    # ---- updates -----------------------------------------------------------
+
+    RELEASES_API = "https://api.github.com/repos/cutterrenowden/WYBC-Automated-Reel-Pipeline/releases/latest"
+
+    @staticmethod
+    def app_version():
+        try:
+            import importlib.metadata
+
+            return importlib.metadata.version("reelpipe")
+        except Exception:
+            return "0.0.0"
+
+    @staticmethod
+    def _version_tuple(text):
+        parts = []
+        for piece in str(text).lstrip("v").split("."):
+            digits = "".join(ch for ch in piece if ch.isdigit())
+            parts.append(int(digits) if digits else 0)
+        return tuple(parts)
+
+    def check_update(self):
+        """compare the installed version against the newest github release."""
+        current = self.app_version()
+        try:
+            import urllib.request
+
+            request = urllib.request.Request(self.RELEASES_API, headers={"Accept": "application/vnd.github+json"})
+            with urllib.request.urlopen(request, timeout=6) as reply:
+                release = json.loads(reply.read().decode("utf-8"))
+        except Exception:
+            return {"current": current, "update": False, "offline": True}
+        latest = str(release.get("tag_name", "")).lstrip("v")
+        wanted = ".dmg" if platform.system() == "Darwin" else "Setup.exe"
+        asset = next((a.get("browser_download_url") for a in release.get("assets", []) if str(a.get("name", "")).endswith(wanted)), None)
+        return {
+            "current": current,
+            "latest": latest,
+            "update": bool(latest) and self._version_tuple(latest) > self._version_tuple(current),
+            "url": asset or release.get("html_url", ""),
+        }
 
     # ---- uninstall ---------------------------------------------------------
 

@@ -41,3 +41,18 @@ def test_timecode_frames():
     assert timecode(0, 30) == "00:00:00:00"
     assert timecode(1.5, 30) == "00:00:01:15"
     assert timecode(3661.0, 25) == "01:01:01:00"
+
+
+def test_caption_strips_render(tmp_path, transcript):
+    from pathlib import Path
+
+    from reelpipe import captions, subtitles
+    from reelpipe.anchor import Clip
+
+    words = transcript.words()
+    clip = Clip(1, "test", words[0].start, words[-1].end)
+    strips = captions.render(subtitles.group(words), clip, 1080, 1920, tmp_path / "strips")
+    assert strips
+    for strip in strips:
+        assert Path(strip["path"]).is_file()
+        assert 0 <= strip["start"] < strip["end"] <= clip.duration + 0.001

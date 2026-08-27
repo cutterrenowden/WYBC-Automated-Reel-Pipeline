@@ -121,17 +121,22 @@ def apply_selection(cfg, job):
 def cut(cfg, job):
     clips = anchor.load(job.clips_json)
     result = Transcript.load(job.transcript_json)
-    audio_only = not job.read_meta()["media"].get("has_video", True)
+    info = job.read_meta()["media"]
+    audio_only = not info.get("has_video", True)
+    vertical = cfg.render.vertical and not audio_only
+    burn = cfg.render.burn_subs and not audio_only
+    frame = (info.get("width") or 1920, info.get("height") or 1080)
     ext = ".m4a" if audio_only else ".mp4"
     job.clips_dir.mkdir(exist_ok=True)
     rendered = []
     for clip in clips:
+        words = anchor.words_between(result, clip.start, clip.end)
         srt_path = job.clips_dir / f"{clip.slug}.srt"
-        subtitles.write_clip_srt(anchor.words_between(result, clip.start, clip.end), clip, srt_path)
+        subtitles.write_clip_srt(words, clip, srt_path)
         dest = job.clips_dir / f"{clip.slug}{ext}"
         log(f"cutting {dest.name} ({clip.duration:.1f}s)")
-        burn = srt_path if cfg.render.burn_subs and not audio_only else None
-        cut_mod.cut_clip(cfg, job.source, clip, dest, burn, audio_only=audio_only)
+        cues = subtitles.group(words) if burn else None
+        cut_mod.cut_clip(cfg, job.source, clip, dest, cues=cues, audio_only=audio_only, vertical=vertical, frame=frame)
         rendered.append(dest)
     return rendered
 

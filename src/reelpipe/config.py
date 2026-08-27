@@ -58,6 +58,7 @@ class Llm:
 @dataclass
 class Render:
     burn_subs: bool = False
+    vertical: bool = False
     crf: int = 18
     preset: str = "medium"
     audio_bitrate: str = "192k"

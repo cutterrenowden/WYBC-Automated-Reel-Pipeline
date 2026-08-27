@@ -68,6 +68,7 @@ def build_parser():
     cu = sub.add_parser("cut", help="render clips + per-clip srt")
     cu.add_argument("job")
     cu.add_argument("--burn-subs", dest="render_burn_subs", action="store_true", default=None)
+    cu.add_argument("--vertical", dest="render_vertical", action="store_true", default=None, help="9:16 center-crop")
 
     ha = sub.add_parser("handoff", help="write the resolve timeline, csv, and report")
     ha.add_argument("job")
@@ -77,6 +78,7 @@ def build_parser():
     ru.add_argument("--slug")
     ru.add_argument("--mode", dest="llm_mode", choices=["manual", "api"])
     ru.add_argument("--burn-subs", dest="render_burn_subs", action="store_true", default=None)
+    ru.add_argument("--vertical", dest="render_vertical", action="store_true", default=None, help="9:16 center-crop")
     add_asr_flags(ru)
     add_prompt_flags(ru)
 

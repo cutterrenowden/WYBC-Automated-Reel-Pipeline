@@ -98,7 +98,8 @@ files and `apply` reads them all.
 
 ## Notes
 
-- `--burn-subs` needs an ffmpeg built with libass. Sidecar SRTs are written either way.
+- Burned captions are drawn in python and composited with ffmpeg's overlay filter, so any
+  ffmpeg build works. `--vertical` center-crops to 9:16 at 1080x1920.
 - Clips re-encode, so in points are exact instead of keyframe-snapped.
 
 ## Tests

@@ -57,7 +57,7 @@ def events(api, kind):
 def test_manual_flow_with_splice_fixes(api, tmp_path):
     video = make_video(tmp_path / "game.mp4")
 
-    assert api.start(str(video), {"llm_mode": "manual", "clips_count": 2}) == {"ok": True}
+    assert api.start(str(video), {"llm_mode": "manual", "clips_count": 2, "render_burn_subs": True}) == {"ok": True}
     wait(api)
     awaiting = events(api, "awaiting")
     assert awaiting, [e for e in api.event_log if e["type"] == "error"]

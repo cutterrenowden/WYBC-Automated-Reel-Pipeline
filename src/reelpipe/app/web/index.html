@@ -59,6 +59,16 @@
         <label class="check"><input type="checkbox" id="set-dark"> Dark mode</label>
       </div>
       <div class="settings-group">
+        <div class="block-label">Updates</div>
+        <div class="update-row">
+          <span id="update-status">ReelPipe</span>
+          <div class="update-actions">
+            <button class="btn ghost small" id="update-check">Check for updates</button>
+            <button class="btn primary small hidden" id="update-get">Download</button>
+          </div>
+        </div>
+      </div>
+      <div class="settings-group">
         <div class="block-label danger-label">Danger zone</div>
         <div class="danger-zone">
           <div>
@@ -112,6 +122,20 @@
         </div>
       </div>
 
+      <div class="field-row">
+        <div class="field">
+          <label>Clip format</label>
+          <div class="segmented" id="opt-format">
+            <button data-value="landscape">Landscape 16:9</button>
+            <button data-value="vertical">Vertical 9:16</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Captions <span class="hint">SRT files are written either way</span></label>
+          <label class="check"><input type="checkbox" id="opt-burn"> Burn into the video</label>
+        </div>
+      </div>
+
       <div class="field">
         <label>Clip picking <span class="hint">paste is free, API costs tokens</span></label>
         <div class="segmented" id="opt-llm">
@@ -143,7 +167,6 @@
           <div class="field"><label>Language</label><input type="text" id="opt-language" placeholder="en, blank = detect"></div>
         </div>
         <label class="check"><input type="checkbox" id="opt-energy"> Loudness assist <span class="hint">mark loud moments for the model, one extra ffmpeg pass</span></label>
-        <label class="check"><input type="checkbox" id="opt-burn"> Burn subtitles into clips <span class="hint">needs libass, sidecar SRTs are written either way</span></label>
       </details>
 
       <div class="actions">

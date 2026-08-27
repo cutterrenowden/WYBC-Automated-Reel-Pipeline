@@ -1,32 +1,56 @@
-"""render the clips with ffmpeg. re-encodes, so the in point is frame accurate."""
+"""render the clips with ffmpeg. re-encodes, so the in point is frame accurate.
+
+captions come in as pillow-rendered strips and composite through the overlay filter,
+which every ffmpeg build ships. vertical center-crops the frame to 9:16.
+"""
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
-from .media import MediaError, ffmpeg_bin, has_filter, run
+from .media import ffmpeg_bin, run
 
-BURN_STYLE = "FontName=Arial,FontSize=22,Bold=1,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,Outline=2,Shadow=0,MarginV=48"
-NO_LIBASS = "this ffmpeg has no subtitles filter, so it was built without libass. either use the sidecar srt files (drop --burn-subs) or install an ffmpeg built with libass"
-
-
-def subtitle_filter(srt_path):
-    """named options only, ffmpeg 8 dropped the positional shorthand."""
-    return f"subtitles=filename={Path(srt_path).name}:force_style='{BURN_STYLE}'"
+VERTICAL_W, VERTICAL_H = 1080, 1920
 
 
-def cut_clip(cfg, source, clip, dest, subtitles=None, audio_only=False):
-    """subtitles is an optional srt to burn in, it must sit next to dest."""
+def cut_clip(cfg, source, clip, dest, cues=None, audio_only=False, vertical=False, frame=(1920, 1080)):
+    """cues burn caption strips into the picture. frame is the source width/height."""
     dest = Path(dest)
-    if subtitles and not has_filter(cfg, "subtitles"):
-        raise MediaError(NO_LIBASS)
-    cmd = [ffmpeg_bin(cfg), "-y", "-v", "error", "-ss", f"{clip.start:.3f}", "-i", str(Path(source).resolve()), "-t", f"{clip.duration:.3f}"]
+    cmd = [ffmpeg_bin(cfg), "-y", "-v", "error", "-ss", f"{clip.start:.3f}", "-i", str(Path(source).resolve())]
     if audio_only:
-        cmd += ["-vn", "-c:a", "aac", "-b:a", cfg.render.audio_bitrate, "-movflags", "+faststart", dest.name]
-    else:
-        if subtitles:
-            # run from the clip folder so the filter never sees a windows drive colon
-            cmd += ["-vf", subtitle_filter(subtitles)]
-        cmd += ["-c:v", "libx264", "-crf", str(cfg.render.crf), "-preset", cfg.render.preset, "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", cfg.render.audio_bitrate, "-movflags", "+faststart", dest.name]
-    run(cmd, cwd=str(dest.parent))
+        cmd += ["-t", f"{clip.duration:.3f}", "-vn", "-c:a", "aac", "-b:a", cfg.render.audio_bitrate, "-movflags", "+faststart", str(dest)]
+        run(cmd)
+        return dest
+
+    out_w, out_h = (VERTICAL_W, VERTICAL_H) if vertical else frame
+    strips, strip_dir = [], None
+    if cues:
+        from . import captions
+
+        strip_dir = dest.parent / f".captions_{clip.index:02d}"
+        strips = captions.render(cues, clip, out_w, out_h, strip_dir)
+
+    try:
+        chains, label = [], "0:v"
+        if vertical:
+            chains.append(f"[{label}]crop=w='trunc(ih*{VERTICAL_W}/{VERTICAL_H}/2)*2':h=ih,scale={VERTICAL_W}:{VERTICAL_H}[vc]")
+            label = "vc"
+        # captions sit higher on vertical clips so platform ui doesn't cover them
+        margin = out_h // 7 if vertical else max(24, out_h // 18)
+        for index, strip in enumerate(strips, start=1):
+            cmd += ["-loop", "1", "-i", str(strip["path"])]
+            step = f"vo{index}"
+            chains.append(
+                f"[{label}][{index}:v]overlay=(main_w-overlay_w)/2:main_h-overlay_h-{margin}"
+                f":enable='between(t,{strip['start']:.3f},{strip['end']:.3f})'[{step}]"
+            )
+            label = step
+        if chains:
+            cmd += ["-filter_complex", ";".join(chains), "-map", f"[{label}]", "-map", "0:a"]
+        cmd += ["-t", f"{clip.duration:.3f}", "-c:v", "libx264", "-crf", str(cfg.render.crf), "-preset", cfg.render.preset, "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", cfg.render.audio_bitrate, "-movflags", "+faststart", str(dest)]
+        run(cmd)
+    finally:
+        if strip_dir is not None:
+            shutil.rmtree(strip_dir, ignore_errors=True)
     return dest

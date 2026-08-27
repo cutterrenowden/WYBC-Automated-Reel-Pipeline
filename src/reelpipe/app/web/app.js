@@ -224,6 +224,7 @@ async function init() {
   applyBoot(boot);
   buildSetupForm();
   if (boot.busy) toast("a job from a previous window is still running", true);
+  checkUpdate(true);
 }
 
 const INSTALL_CMDS = { Darwin: "brew install ffmpeg", Windows: "winget install Gyan.FFmpeg" };
@@ -352,6 +353,7 @@ function buildSetupForm() {
   $("opt-model").innerHTML = state.models.map((m) => `<button data-value="${esc(m)}">${esc(m)}</button>`).join("");
   segmented($("opt-model"), d.asr_model);
   segmented($("opt-profile"), d.prompt_profile);
+  segmented($("opt-format"), d.render_vertical ? "vertical" : "landscape");
   segmented($("opt-llm"), d.llm_mode, (value) => $("api-panel").classList.toggle("hidden", value !== "api"));
   $("api-panel").classList.toggle("hidden", d.llm_mode !== "api");
   segmented($("opt-provider"), d.llm_provider, updateKeyHint);
@@ -402,6 +404,7 @@ function collectOptions() {
     energy_enabled: $("opt-energy").checked,
     prompt_profile: $("opt-profile").dataset.value,
     render_burn_subs: $("opt-burn").checked,
+    render_vertical: $("opt-format").dataset.value === "vertical",
     llm_mode: $("opt-llm").dataset.value,
     llm_provider: $("opt-provider").dataset.value,
   };
@@ -581,7 +584,7 @@ function clipCard(clip) {
     ? `<div class="clip-note">not rendered yet</div>`
     : clip.kind === "audio"
       ? `<div class="audio-wrap"><audio controls preload="metadata" src="${esc(videoUrl(clip))}"></audio></div>`
-      : `<div class="vid-wrap"><video controls preload="metadata"${poster} src="${esc(videoUrl(clip))}"></video><button class="expand" title="fullscreen">⛶</button></div>`;
+      : `<div class="vid-wrap${clip.vertical ? " vert" : ""}"><video controls preload="metadata"${poster} src="${esc(videoUrl(clip))}"></video><button class="expand" title="fullscreen">⛶</button></div>`;
   card.innerHTML = `
     ${player}
     <div class="clip-title" title="${esc(clip.title)}"><span class="idx">${String(clip.index).padStart(2, "0")}</span>${esc(clip.title)}</div>
@@ -839,6 +842,31 @@ function wireEditor() {
   };
 }
 
+/* ---------- updates ---------- */
+
+let updateUrl = null;
+
+async function checkUpdate(announce) {
+  const status = $("update-status");
+  status.textContent = "checking…";
+  const info = await call("check_update");
+  if (!info) { status.textContent = "ReelPipe"; return; }
+  if (info.offline) {
+    status.textContent = `ReelPipe ${info.current} · couldn't reach GitHub`;
+    return;
+  }
+  if (info.update) {
+    updateUrl = info.url;
+    status.textContent = `ReelPipe ${info.current} · version ${info.latest} is available`;
+    $("update-get").classList.remove("hidden");
+    if (announce) toast(`ReelPipe ${info.latest} is available. See Settings.`, false, 6000);
+  } else {
+    updateUrl = null;
+    status.textContent = `ReelPipe ${info.current} · up to date`;
+    $("update-get").classList.add("hidden");
+  }
+}
+
 /* ---------- uninstall ---------- */
 
 async function uninstallApp() {
@@ -873,6 +901,8 @@ function wireStatic() {
   wireHome();
   wireEditor();
   $("uninstall").onclick = uninstallApp;
+  $("update-check").onclick = () => checkUpdate(false);
+  $("update-get").onclick = () => { if (updateUrl) call("open_external", updateUrl); };
   for (const tab of document.querySelectorAll(".nav button")) {
     tab.onclick = () => tab.dataset.nav === "settings" ? show("settings") : goHome();
   }

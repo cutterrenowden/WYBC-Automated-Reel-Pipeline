@@ -14,8 +14,9 @@ datas = [(str(ROOT / "src/reelpipe/app/web"), "reelpipe/app/web")]
 binaries = []
 hiddenimports = ["reelpipe", "reelpipe.app.main"]
 
-# otio discovers its adapters through entry points, which need the dist metadata around
-for dist in ["opentimelineio", "otio-fcp-adapter", "otio-cmx3600-adapter"]:
+# otio discovers its adapters through entry points, which need the dist metadata around.
+# reelpipe's own metadata carries the version the update checker reports.
+for dist in ["opentimelineio", "otio-fcp-adapter", "otio-cmx3600-adapter", "reelpipe"]:
     datas += copy_metadata(dist)
 hiddenimports += ["otio_fcp_adapter", "otio_cmx3600_adapter"]
 
