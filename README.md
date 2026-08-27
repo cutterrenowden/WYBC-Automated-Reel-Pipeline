@@ -1,6 +1,6 @@
 # ReelPipe
 
-ReelPipe is a desktop app that automates converting podcasts or sport footage with broadcast audio into spliced sections for use on social media, namely Instagram Reels. You can upload a MP4 or MP3, and ReelPipe will automatically transcribe the audio using an included multimodal transcription model included in the installer. and then use AI to find the best moments to insert cuts. You can choose to have ReelPipe burn the subtitles into the video, or output the respective subtitle track files for you to manipulate in your favorite video editor, along with other customizable options.
+ReelPipe is a desktop app designed for Yale's WYBC Radio Station that automates converting podcasts or sport footage with broadcast audio into spliced sections for use on social media, namely Instagram Reels. You can upload a MP4 or MP3, and ReelPipe will automatically transcribe the audio using an included multimodal transcription model included in the installer. and then use AI to find the best moments to insert cuts. You can choose to have ReelPipe burn the subtitles into the video, or output the respective subtitle track files for you to manipulate in your favorite video editor, along with other customizable options.
 
 
 ## Install
