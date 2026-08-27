@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 
 from . import anchor, energy, media, prompt, selection, subtitles
 from . import cut as cut_mod
@@ -12,8 +13,22 @@ from .paths import Job
 from .transcript import Transcript, write_llm_view, write_srt, write_txt
 
 
+_log_listener = None
+
+
+def set_log_listener(fn):
+    """the desktop app taps in here to mirror progress lines. pass none to detach."""
+    global _log_listener
+    _log_listener = fn
+
+
 def log(message):
     print(message, flush=True)
+    if _log_listener:
+        try:
+            _log_listener(str(message))
+        except Exception:
+            pass
 
 
 def doctor(cfg):
@@ -28,10 +43,14 @@ def doctor(cfg):
 
 
 def ingest(cfg, source, slug=None):
-    job = Job.create(cfg.paths.out_dir, source, slug)
-    info = media.probe(cfg, job.source)
+    source = Path(source).expanduser()
+    if not source.is_file():
+        raise FileNotFoundError(f"no such file: {source}")
+    info = media.probe(cfg, source)
+    job = Job.create(cfg.paths.out_dir, source, slug, "video" if info.has_video else "audio")
     job.write_meta({"media": info.to_dict()})
-    log(f"job {job.slug}: {info.duration / 60:.1f} min, {info.width}x{info.height} @ {info.fps:.3f} fps")
+    shape = f"{info.width}x{info.height} @ {info.fps:.3f} fps" if info.has_video else "audio only"
+    log(f"job {job.slug}: {info.duration / 60:.1f} min, {shape}")
     return job
 
 
@@ -102,14 +121,17 @@ def apply_selection(cfg, job):
 def cut(cfg, job):
     clips = anchor.load(job.clips_json)
     result = Transcript.load(job.transcript_json)
+    audio_only = not job.read_meta()["media"].get("has_video", True)
+    ext = ".m4a" if audio_only else ".mp4"
     job.clips_dir.mkdir(exist_ok=True)
     rendered = []
     for clip in clips:
         srt_path = job.clips_dir / f"{clip.slug}.srt"
         subtitles.write_clip_srt(anchor.words_between(result, clip.start, clip.end), clip, srt_path)
-        dest = job.clips_dir / f"{clip.slug}.mp4"
+        dest = job.clips_dir / f"{clip.slug}{ext}"
         log(f"cutting {dest.name} ({clip.duration:.1f}s)")
-        cut_mod.cut_clip(cfg, job.source, clip, dest, srt_path if cfg.render.burn_subs else None)
+        burn = srt_path if cfg.render.burn_subs and not audio_only else None
+        cut_mod.cut_clip(cfg, job.source, clip, dest, burn, audio_only=audio_only)
         rendered.append(dest)
     return rendered
 

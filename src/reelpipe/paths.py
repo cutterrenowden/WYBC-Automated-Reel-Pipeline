@@ -19,11 +19,15 @@ class Job:
     root: Path
 
     @classmethod
-    def create(cls, out_dir, source, slug=None):
+    def create(cls, out_dir, source, slug=None, category=""):
+        """category sorts jobs into out/video and out/audio. blank keeps the flat layout."""
         source = Path(source).expanduser().resolve()
         if not source.is_file():
             raise FileNotFoundError(f"no such file: {source}")
-        job = cls(slug or slugify(source.stem), Path(out_dir).expanduser() / slugify(slug or source.stem))
+        base = Path(out_dir).expanduser()
+        if category:
+            base = base / category
+        job = cls(slug or slugify(source.stem), base / slugify(slug or source.stem))
         job.root.mkdir(parents=True, exist_ok=True)
         job.clips_dir.mkdir(exist_ok=True)
         job.handoff_dir.mkdir(exist_ok=True)
@@ -34,10 +38,16 @@ class Job:
     def open(cls, out_dir, ref):
         """ref is either a slug or a path to a job folder."""
         candidate = Path(ref).expanduser()
-        root = candidate if candidate.is_dir() else Path(out_dir).expanduser() / slugify(ref)
-        if not (root / "job.json").is_file():
-            raise FileNotFoundError(f"no job at {root}, run transcribe first")
-        return cls(slugify(root.name), root)
+        if candidate.is_dir():
+            if not (candidate / "job.json").is_file():
+                raise FileNotFoundError(f"no job at {candidate}, run transcribe first")
+            return cls(slugify(candidate.name), candidate)
+        base = Path(out_dir).expanduser()
+        slug = slugify(ref)
+        for root in (base / "video" / slug, base / "audio" / slug, base / slug):
+            if (root / "job.json").is_file():
+                return cls(slug, root)
+        raise FileNotFoundError(f"no job named {ref} under {base}, run transcribe first")
 
     @property
     def meta_json(self):

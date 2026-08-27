@@ -72,6 +72,35 @@ That prints where ffmpeg was found, which whisper backends are installed, and wh
 used. If ffmpeg isn't on your PATH, set `paths.ffmpeg` and `paths.ffprobe` in `config.toml`, or set
 the `FFMPEG` and `FFPROBE` environment variables.
 
+## The desktop app
+
+Everything below also comes as a windowed app: drop a broadcast on it, tune the knobs with
+sliders, and it walks the same pipeline stage by stage. In paste mode it stops to hand you the
+prompt and take the reply; when the clips are done you can preview each one in place, fix a bad
+splice by nudging the in/out points and re-cutting, delete misses, and jump straight to the
+Resolve handoff files.
+
+```bash
+pip install -e ".[apple,app]"     # or [generic,app] off apple silicon
+reelpipe-app
+```
+
+The window and the cli share `config.toml`, the `out/` folder, and every stage's files, so you can
+mix them freely — start a job in the app, rerun a stage from the terminal, reopen the job in the
+app.
+
+To hand teammates a double-clickable build:
+
+```bash
+bash packaging/build-macos.sh                                      # dist/ReelPipe.app
+powershell -ExecutionPolicy Bypass -File packaging\build-windows.ps1   # dist\ReelPipe\ReelPipe.exe
+```
+
+Builds must be made on the platform they target. The bundle is large (it carries the whisper
+backend), ffmpeg still has to be installed on the machine, and whisper models still download to
+the user cache on first transcribe. A packaged app keeps its `config.toml` and `out/` in
+`~/ReelPipe`. Unsigned macOS builds need the right-click &rarr; Open dance the first time.
+
 ## Quick start, no API key
 
 ```bash
@@ -102,8 +131,12 @@ reelpipe run game.mov --mode api
 
 ## What you get
 
+Video sources land in `out/video/`, audio-only sources (podcasts, radio) in `out/audio/`. An
+audio job runs the same pipeline and produces the same files, except clips come out as `.m4a`
+audio instead of `.mp4`.
+
 ```
-out/game/
+out/video/game/
   job.json              media info, backend used, word count
   audio.wav             16k mono, what whisper ate
   transcript.json       segments and per-word timings

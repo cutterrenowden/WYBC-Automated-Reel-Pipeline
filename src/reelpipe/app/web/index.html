@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ReelPipe</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<svg id="poly" preserveAspectRatio="xMidYMid slice" aria-hidden="true"></svg>
+
+<header>
+  <div class="wordmark">Reel<span class="pipe">|</span>Pipe</div>
+  <div class="head-right">
+    <nav class="nav">
+      <button data-nav="home" class="on">Home</button>
+      <button data-nav="settings">Settings</button>
+    </nav>
+    <div id="doctor" class="doctor"></div>
+  </div>
+</header>
+
+<main>
+
+  <!-- drop a file -->
+  <section id="screen-home" class="screen">
+    <div class="card">
+      <div id="ffmpeg-block" class="install-block hidden">
+        <b>ffmpeg is required before ReelPipe can run.</b>
+        <p>Install it, then check again:</p>
+        <code id="ffmpeg-cmd"></code>
+        <div class="install-actions">
+          <button class="btn ghost small" data-open="https://ffmpeg.org/download.html">ffmpeg.org &nearr;</button>
+          <button class="btn small" id="ffmpeg-recheck">Check again</button>
+        </div>
+      </div>
+      <div id="dropzone" class="dropzone" tabindex="0">
+        <svg class="drop-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="6" y="10" width="36" height="28" rx="4"/>
+          <path d="M24 30V18m0 0-5 5m5-5 5 5"/>
+        </svg>
+        <div class="drop-title">Upload a broadcast</div>
+        <button class="btn ghost" id="browse">Browse&hellip;</button>
+      </div>
+      <div id="jobs-block" class="jobs-block hidden">
+        <div class="block-label">Previous jobs</div>
+        <div id="jobs"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- settings -->
+  <section id="screen-settings" class="screen hidden">
+    <div class="card narrow">
+      <div class="setup-name">Settings</div>
+      <div class="settings-group">
+        <div class="block-label">Appearance</div>
+        <label class="check"><input type="checkbox" id="set-dark"> Dark mode</label>
+      </div>
+      <div class="settings-group">
+        <div class="block-label danger-label">Danger zone</div>
+        <div class="danger-zone">
+          <div>
+            <b>Uninstall ReelPipe</b>
+            <div class="danger-sub">Removes the downloaded whisper models and app settings. Job outputs are kept.</div>
+          </div>
+          <button class="btn small danger" id="uninstall">Uninstall ReelPipe</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- tune the run -->
+  <section id="screen-setup" class="screen hidden">
+    <div class="card">
+      <div class="setup-head">
+        <div>
+          <div class="setup-name" id="setup-name"></div>
+          <div class="setup-meta" id="setup-meta"></div>
+        </div>
+        <button class="btn ghost small" id="setup-back">&larr; Different file</button>
+      </div>
+
+      <div class="field">
+        <label>Whisper model <span class="hint">left is fast, right is accurate</span></label>
+        <div class="segmented" id="opt-model"></div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Clips to look for <output id="out-count"></output></label>
+          <input type="range" id="opt-count" min="1" max="20" step="1">
+        </div>
+        <div class="field">
+          <label>Profile</label>
+          <div class="segmented" id="opt-profile">
+            <button data-value="sports">Sports</button>
+            <button data-value="generic">Generic</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Min length <output id="out-min"></output></label>
+          <input type="range" id="opt-min" min="5" max="60" step="1">
+        </div>
+        <div class="field">
+          <label>Max length <output id="out-max"></output></label>
+          <input type="range" id="opt-max" min="15" max="180" step="5">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Clip picking <span class="hint">paste is free, API costs tokens</span></label>
+        <div class="segmented" id="opt-llm">
+          <button data-value="manual">Paste into ChatGPT / Claude</button>
+          <button data-value="api">Call an API</button>
+        </div>
+        <div id="api-panel" class="api-panel hidden">
+          <div class="field-row">
+            <div class="field">
+              <label>Provider</label>
+              <div class="segmented" id="opt-provider">
+                <button data-value="anthropic">Anthropic</button>
+                <button data-value="openai">OpenAI</button>
+              </div>
+            </div>
+            <div class="field">
+              <label>API key <span class="hint" id="key-hint"></span></label>
+              <input type="password" id="opt-key" placeholder="paste a key, kept in memory only">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <details class="advanced">
+        <summary>Advanced</summary>
+        <div class="field-row">
+          <div class="field"><label>Lead-in (s)</label><input type="number" id="opt-leadin" min="0" max="10" step="0.5"></div>
+          <div class="field"><label>Lead-out (s)</label><input type="number" id="opt-leadout" min="0" max="10" step="0.5"></div>
+          <div class="field"><label>Language</label><input type="text" id="opt-language" placeholder="en, blank = detect"></div>
+        </div>
+        <label class="check"><input type="checkbox" id="opt-energy"> Loudness assist <span class="hint">mark loud moments for the model, one extra ffmpeg pass</span></label>
+        <label class="check"><input type="checkbox" id="opt-burn"> Burn subtitles into clips <span class="hint">needs libass, sidecar SRTs are written either way</span></label>
+      </details>
+
+      <div class="actions">
+        <button class="btn primary big" id="start">Start</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- pipeline running -->
+  <section id="screen-running" class="screen hidden">
+    <div class="card narrow">
+      <div class="running-head">
+        <div class="running-title" id="run-title">Working&hellip;</div>
+        <div class="elapsed" id="elapsed">0:00</div>
+      </div>
+      <ol id="stages" class="stages"></ol>
+      <pre id="logbox" class="logbox"></pre>
+      <div class="actions split">
+        <button class="btn ghost small" id="cancel">Cancel after this stage</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- paste the llm reply -->
+  <section id="screen-paste" class="screen hidden">
+    <div class="card">
+      <div class="paste-head">
+        <div>
+          <div class="setup-name">Pick the moments</div>
+          <div class="setup-meta">Copy each prompt into ChatGPT or Claude, paste the reply back below.</div>
+        </div>
+        <div class="paste-links">
+          <button class="btn ghost small" data-open="https://chatgpt.com">ChatGPT &nearr;</button>
+          <button class="btn ghost small" data-open="https://claude.ai/new">Claude &nearr;</button>
+        </div>
+      </div>
+      <div id="prompts"></div>
+      <div class="actions split">
+        <button class="btn ghost small" id="paste-home">&larr; Home</button>
+        <button class="btn primary big" id="apply" disabled>Cut the clips</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- results -->
+  <section id="screen-results" class="screen hidden">
+    <div class="results-head card slim">
+      <div>
+        <div class="setup-name" id="res-title"></div>
+        <div class="setup-meta" id="res-path"></div>
+      </div>
+      <div class="paste-links">
+        <button class="btn ghost small" id="open-folder">Open folder</button>
+        <button class="btn primary small" id="new-job">New job</button>
+      </div>
+    </div>
+    <div id="clips" class="clips"></div>
+    <div class="card slim" id="handoff-card">
+      <div class="block-label">Exports</div>
+      <div id="handoff" class="handoff"></div>
+    </div>
+  </section>
+
+</main>
+
+<!-- splice editor: preview with context on both sides, set in/out from the playhead -->
+<div id="editor" class="editor hidden">
+  <div class="editor-panel">
+    <div class="editor-head">
+      <b id="ed-title"></b>
+      <button class="btn ghost small" id="ed-close">Close</button>
+    </div>
+    <div class="vid-wrap">
+      <video id="ed-video" controls preload="auto"></video>
+      <button class="expand" id="ed-expand" title="fullscreen">⛶</button>
+    </div>
+    <div class="ed-bar" id="ed-bar">
+      <div id="ed-orig-start" class="ed-orig"></div>
+      <div id="ed-orig-end" class="ed-orig"></div>
+      <div id="ed-range"></div>
+      <div id="ed-handle-start" class="ed-handle"></div>
+      <div id="ed-handle-end" class="ed-handle"></div>
+      <div id="ed-playhead"></div>
+    </div>
+    <div id="ed-status" class="ed-status"></div>
+    <div class="ed-controls">
+      <div class="ed-group">
+        <label>Start</label>
+        <div class="ed-set">
+          <button class="ed-nudge" data-ed="start:-0.5">&minus;.5</button><input id="ed-start"><button class="ed-nudge" data-ed="start:0.5">+.5</button>
+        </div>
+      </div>
+      <div class="ed-group">
+        <label>End</label>
+        <div class="ed-set">
+          <button class="ed-nudge" data-ed="end:-0.5">&minus;.5</button><input id="ed-end"><button class="ed-nudge" data-ed="end:0.5">+.5</button>
+        </div>
+      </div>
+    </div>
+    <div class="ed-actions">
+      <span id="ed-dur" class="ed-dur"></span>
+      <div class="ed-buttons">
+        <button class="btn ghost small" id="ed-wider">Wider context</button>
+        <button class="btn primary" id="ed-save">Save &amp; re-cut</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- theater: fills the window with one video -->
+<div id="theater" class="theater hidden">
+  <button class="btn ghost small" id="theater-close">Close</button>
+  <div id="theater-slot" class="theater-slot"></div>
+</div>
+
+<!-- confirm dialog -->
+<div id="confirm" class="editor hidden">
+  <div class="confirm-panel">
+    <div id="confirm-text"></div>
+    <input id="confirm-challenge" class="hidden" autocomplete="off" spellcheck="false">
+    <div class="confirm-actions">
+      <button class="btn ghost small" id="confirm-no">Cancel</button>
+      <button class="btn small danger-solid" id="confirm-yes">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

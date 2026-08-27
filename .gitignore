@@ -10,6 +10,7 @@ venv/
 out/
 config.toml
 .env
+.reelpipe-ui.json
 
 .pytest_cache/
 .DS_Store

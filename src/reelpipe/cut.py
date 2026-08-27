@@ -15,15 +15,18 @@ def subtitle_filter(srt_path):
     return f"subtitles=filename={Path(srt_path).name}:force_style='{BURN_STYLE}'"
 
 
-def cut_clip(cfg, source, clip, dest, subtitles=None):
+def cut_clip(cfg, source, clip, dest, subtitles=None, audio_only=False):
     """subtitles is an optional srt to burn in, it must sit next to dest."""
     dest = Path(dest)
     if subtitles and not has_filter(cfg, "subtitles"):
         raise MediaError(NO_LIBASS)
     cmd = [ffmpeg_bin(cfg), "-y", "-v", "error", "-ss", f"{clip.start:.3f}", "-i", str(Path(source).resolve()), "-t", f"{clip.duration:.3f}"]
-    if subtitles:
-        # run from the clip folder so the filter never sees a windows drive colon
-        cmd += ["-vf", subtitle_filter(subtitles)]
-    cmd += ["-c:v", "libx264", "-crf", str(cfg.render.crf), "-preset", cfg.render.preset, "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", cfg.render.audio_bitrate, "-movflags", "+faststart", dest.name]
+    if audio_only:
+        cmd += ["-vn", "-c:a", "aac", "-b:a", cfg.render.audio_bitrate, "-movflags", "+faststart", dest.name]
+    else:
+        if subtitles:
+            # run from the clip folder so the filter never sees a windows drive colon
+            cmd += ["-vf", subtitle_filter(subtitles)]
+        cmd += ["-c:v", "libx264", "-crf", str(cfg.render.crf), "-preset", cfg.render.preset, "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", cfg.render.audio_bitrate, "-movflags", "+faststart", dest.name]
     run(cmd, cwd=str(dest.parent))
     return dest

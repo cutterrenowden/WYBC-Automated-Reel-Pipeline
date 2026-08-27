@@ -1,0 +1,71 @@
+# -*- mode: python ; coding: utf-8 -*-
+# build with: pyinstaller --noconfirm packaging/reelpipe-app.spec  (run from the repo root)
+# the whisper backends drag in torch/numba (mac) or ctranslate2/onnx (windows),
+# so expect a fat bundle. whisper models still download to ~/.cache on first run.
+
+import sys
+from pathlib import Path
+
+from PyInstaller.utils.hooks import collect_all, copy_metadata
+
+ROOT = Path(SPECPATH).parent
+
+datas = [(str(ROOT / "src/reelpipe/app/web"), "reelpipe/app/web")]
+binaries = []
+hiddenimports = ["reelpipe", "reelpipe.app.main"]
+
+# otio discovers its adapters through entry points, which need the dist metadata around
+for dist in ["opentimelineio", "otio-fcp-adapter", "otio-cmx3600-adapter"]:
+    datas += copy_metadata(dist)
+hiddenimports += ["otio_fcp_adapter", "otio_cmx3600_adapter"]
+
+collect = ["opentimelineio"]
+if sys.platform == "darwin":
+    # mlx ships metal kernels as data, tiktoken loads its encodings via a plugin package
+    collect += ["mlx", "mlx_whisper"]
+    hiddenimports += ["tiktoken_ext", "tiktoken_ext.openai_public"]
+else:
+    # faster-whisper carries the silero vad model in its assets
+    collect += ["faster_whisper", "ctranslate2"]
+
+for package in collect:
+    d, b, h = collect_all(package)
+    datas += d
+    binaries += b
+    hiddenimports += h
+
+a = Analysis(
+    [str(ROOT / "packaging/launch.py")],
+    pathex=[str(ROOT / "src")],
+    datas=datas,
+    binaries=binaries,
+    hiddenimports=hiddenimports,
+    excludes=["tkinter", "pytest"],
+    noarchive=False,
+)
+
+pyz = PYZ(a.pure)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    exclude_binaries=True,
+    name="ReelPipe",
+    console=False,
+    upx=False,
+)
+
+coll = COLLECT(exe, a.binaries, a.datas, name="ReelPipe", upx=False)
+
+if sys.platform == "darwin":
+    app = BUNDLE(
+        coll,
+        name="ReelPipe.app",
+        icon=None,
+        bundle_identifier="org.wybc.reelpipe",
+        info_plist={
+            "NSHighResolutionCapable": True,
+            # the ui and clip previews come off a loopback http server
+            "NSAppTransportSecurity": {"NSAllowsLocalNetworking": True},
+        },
+    )
