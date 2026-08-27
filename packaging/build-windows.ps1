@@ -10,6 +10,15 @@ if (-not (Test-Path .venv)) {
 pip install -e ".[generic,app,build]"
 pyinstaller --noconfirm packaging\reelpipe-app.spec
 
+$iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+if (Test-Path $iscc) {
+  $ver = python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
+  & $iscc /DAppVer=$ver packaging\reelpipe.iss
+  Write-Host "built ReelPipe-Windows-Setup.exe"
+} else {
+  Write-Host "inno setup not found - skipping the installer (choco install innosetup)"
+}
+
 Write-Host ""
 Write-Host "built dist\ReelPipe\ReelPipe.exe"
 Write-Host "the machine needs ffmpeg on PATH: winget install Gyan.FFmpeg"

@@ -15,10 +15,11 @@ Worked example: [example/](example/) — Gilbert no-hitter call at [`example/cli
 ## Download
 
 The desktop app is on the [latest release](https://github.com/cutterrenowden/WYBC-Automated-Reel-Pipeline/releases/latest):
-`ReelPipe-macOS.zip` (Apple Silicon) or `ReelPipe-Windows.zip`. Install
-[ffmpeg](https://ffmpeg.org/download.html), unzip, and run. macOS builds are unsigned, so the
-first launch is right-click &rarr; Open. Everything below covers running the pipeline from
-source instead.
+`ReelPipe-macOS.dmg` (Apple Silicon — open it and drag the app to Applications) or
+`ReelPipe-Windows-Setup.exe` (run it; ReelPipe lands in the Start Menu). Install
+[ffmpeg](https://ffmpeg.org/download.html) too: `brew install ffmpeg` on macOS,
+`winget install Gyan.FFmpeg` on Windows. macOS builds are unsigned, so the first launch is
+right-click &rarr; Open. Everything below covers running the pipeline from source instead.
 
 ## Requirements
 
