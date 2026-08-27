@@ -1,22 +1,20 @@
 # example: tyler gilbert no-hitter
 
-sample: [youtube](https://www.youtube.com/watch?v=WFlYE8F-_xo) (~7 min, 640x360). save it as `gilbert_nohitter.mp4` (not in this repo).
-
-this folder is a checked-in run of that video: cuts, captions, and resolve files. your own jobs still go to `out/` (gitignored).
+sample: [youtube](https://www.youtube.com/watch?v=WFlYE8F-_xo) (~7 min, 640x360). save it as `gilbert_nohitter.mp4`
 
 install: [python 3.13](https://www.python.org/downloads/), [ffmpeg](https://ffmpeg.org/download.html), [resolve](https://www.blackmagicdesign.com/products/davinciresolve) (optional). mac: [homebrew](https://brew.sh) then `brew install ffmpeg python@3.13`. see the [root README](../README.md).
 
 ## 0. setup
 
-from the cloned repo, venv on (`source .venv/bin/activate`):
+from the cloned repo, start the virtual environment (`source .venv/bin/activate`):
 
 ```bash
 reelpipe doctor
 ```
 
-preflight: ffmpeg on PATH, which whisper backend is installed. this example used mlx / `large-v3-turbo`.
+before running, satisfy these requirements: ffmpeg on PATH, whisper is installed. this example uses mlx / `large-v3-turbo`.
 
-## 1. transcribe
+## 1. transcribe : reelpipe transcribe {file name} {optional count argument} {optional min seconds argument} {optional max seconds argument}
 
 ```bash
 reelpipe transcribe gilbert_nohitter.mp4 --count 5 --min-seconds 12 --max-seconds 45
@@ -29,19 +27,19 @@ transcript: 145 segments, 837 words
 prompt ready: out/gilbert-nohitter/prompt.txt
 ```
 
-~2 min including model download.
+running may take a couple minutes.
 
-whisper writes word timings. `llm_transcript.txt` is that text with `[m:ss]` prefixes. the last clip comes from:
+local transcription model will output `llm_transcript.txt` with `[m:ss]` prefixes. here is an example of part of the transcription:
 
 ```
 [6:06] center field Marte
 [6:08] it's a no hitter
 [6:14] Tyler Gilbert has thrown a no hitter
 [6:18] in his first career major league
-[6:20] start the first Diamondbacks
+[6:20] start the first Diamondbacks...
 ```
 
-## 2. llm pick
+## 2. we want to use a llm to determine how to splice the clips. to use a website, copy the prompt to give to ChatGPT/Claude/etc.
 
 ```bash
 reelpipe prompt gilbert-nohitter --copy
@@ -49,13 +47,6 @@ reelpipe prompt gilbert-nohitter --copy
 
 paste into [chatgpt](https://chatgpt.com) or [claude](https://claude.ai). save the reply as `out/gilbert-nohitter/response.txt`.
 
-the prompt asks for 5 clips, 12–45s, with `start_quote` / `end_quote` copied verbatim. five titles this run:
-
-1. first mlb start
-2. eight straight retired
-3. no-hitter through six
-4. peralta at the wall
-5. gilbert throws a no-hitter
 
 ## 3. apply
 
@@ -63,7 +54,7 @@ the prompt asks for 5 clips, 12–45s, with `start_quote` / `end_quote` copied v
 reelpipe apply gilbert-nohitter --min-seconds 12 --max-seconds 45
 ```
 
-fuzzy-matches those quotes onto whisper word times. writes `clips.json`.
+from the llm, the pipeline determines the start and endpoints of each clip, and writes `clips.json`.
 
 ```
 5 picks -> 5 clips
@@ -74,48 +65,14 @@ fuzzy-matches those quotes onto whisper word times. writes `clips.json`.
   05   363.84s + 19.3s  match 1.00  gilbert throws a no-hitter
 ```
 
-## 4. cut
+## 4. cut the clips according to `clips.json`. uses ffmpeg (make sure its installed)
 
 ```bash
 reelpipe cut gilbert-nohitter
 ```
 
-ffmpeg slices the source. sidecar `.srt` per clip, times start at 0. then resolve handoff files.
+outputs the individual clips along with their transcription files (.srt)
 
-the copies in this folder are that output.
-
-## the clip: no-hitter call
-
-[`clips/05_gilbert-throws-a-no-hitter.mp4`](clips/05_gilbert-throws-a-no-hitter.mp4) — 19.3s, source 00:06:03–00:06:23, match 1.00
-
-announcer: *center field Marte / it's a no hitter / Tyler Gilbert has thrown a no hitter in his first career major league start*
-
-sidecar captions: [`05_gilbert-throws-a-no-hitter.srt`](clips/05_gilbert-throws-a-no-hitter.srt)
-
-other cuts from the same run (same `clips/` folder):
-
-| file | source tc | dur |
-|---|---|---|
-| `01_first-mlb-start.mp4` | 00:00:00–00:00:31 | 31.4s |
-| `02_eight-straight-retired.mp4` | 00:01:24–00:01:36 | 12.0s |
-| `03_no-hitter-through-six.mp4` | 00:03:33–00:03:55 | 22.1s |
-| `04_peralta-at-the-wall.mp4` | 00:04:17–00:04:57 | 40.7s |
-
-## what's in here
-
-```
-example/
-  clips/     mp4 + matching srt
-  handoff/   resolve xml/edl, csv, report
-  clips.json start/end seconds used to cut
-```
-
-- `clips/*.srt` — captions for that mp4. not burned in.
-- `clips.json` — start/end seconds, match score, warnings.
-- `handoff/reels.xml` — fcp7 timeline of the five cuts on the source file.
-- `handoff/reels.edl` — same cuts, fallback if xml import fails.
-- `handoff/clips.csv` — titles, timecodes, scores, captions. spreadsheet, not a timeline.
-- `handoff/REPORT.md` — same info readable, plus why each clip was picked.
 
 xml/edl point at `gilbert_nohitter.mp4`. relink in resolve if the file isn't next to them.
 
