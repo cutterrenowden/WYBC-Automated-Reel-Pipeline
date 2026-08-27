@@ -12,6 +12,14 @@ ChatGPT/Claude subscription you already pay for.
 
 Worked example: [example/](example/) — Gilbert no-hitter call at [`example/clips/05_gilbert-throws-a-no-hitter.mp4`](example/clips/05_gilbert-throws-a-no-hitter.mp4).
 
+## Download
+
+The desktop app is on the [latest release](https://github.com/cutterrenowden/WYBC-Automated-Reel-Pipeline/releases/latest):
+`ReelPipe-macOS.zip` (Apple Silicon) or `ReelPipe-Windows.zip`. Install
+[ffmpeg](https://ffmpeg.org/download.html), unzip, and run. macOS builds are unsigned, so the
+first launch is right-click &rarr; Open. Everything below covers running the pipeline from
+source instead.
+
 ## Requirements
 
 - [Python](https://www.python.org/downloads/) 3.11, 3.12, or 3.13. Not 3.14 yet (OpenTimelineIO has no 3.14 wheels).
@@ -74,11 +82,12 @@ the `FFMPEG` and `FFPROBE` environment variables.
 
 ## The desktop app
 
-Everything below also comes as a windowed app: drop a broadcast on it, tune the knobs with
-sliders, and it walks the same pipeline stage by stage. In paste mode it stops to hand you the
-prompt and take the reply; when the clips are done you can preview each one in place, fix a bad
-splice by nudging the in/out points and re-cutting, delete misses, and jump straight to the
-Resolve handoff files.
+Everything below also comes as a windowed app: drop a video or an audio file (a podcast, a radio
+show) on it, tune the knobs with sliders, and it walks the same pipeline stage by stage. In paste
+mode it stops to hand you the prompt and take the reply. When the clips are done you can preview
+each one in place, fix a bad splice in a trim editor that shows extra footage around the cut and
+lets you drag the in/out points, delete misses, and jump straight to the export files. A settings
+tab holds a dark mode and a full uninstall (models and settings go, outputs stay).
 
 ```bash
 pip install -e ".[apple,app]"     # or [generic,app] off apple silicon
@@ -89,17 +98,21 @@ The window and the cli share `config.toml`, the `out/` folder, and every stage's
 mix them freely — start a job in the app, rerun a stage from the terminal, reopen the job in the
 app.
 
-To hand teammates a double-clickable build:
+To build the double-clickable app:
 
 ```bash
 bash packaging/build-macos.sh                                      # dist/ReelPipe.app
 powershell -ExecutionPolicy Bypass -File packaging\build-windows.ps1   # dist\ReelPipe\ReelPipe.exe
 ```
 
-Builds must be made on the platform they target. The bundle is large (it carries the whisper
-backend), ffmpeg still has to be installed on the machine, and whisper models still download to
-the user cache on first transcribe. A packaged app keeps its `config.toml` and `out/` in
-`~/ReelPipe`. Unsigned macOS builds need the right-click &rarr; Open dance the first time.
+Builds must be made on the platform they target — or let CI do it: creating a GitHub release
+whose tag starts with `v` (or running the `release-builds` workflow against an existing tag)
+builds both platforms on GitHub's runners and attaches the zips to the release.
+
+The bundle is large (it carries the whisper backend), ffmpeg still has to be installed on the
+machine, and whisper models still download to the user cache on first transcribe. A packaged app
+keeps its `config.toml` and `out/` in `~/ReelPipe`. Unsigned macOS builds need the right-click
+&rarr; Open dance the first time.
 
 ## Quick start, no API key
 

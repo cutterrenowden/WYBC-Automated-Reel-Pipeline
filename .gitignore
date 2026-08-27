@@ -12,5 +12,8 @@ config.toml
 .env
 .reelpipe-ui.json
 
+# release bundles live on the releases page, never in history
+*.zip
+
 .pytest_cache/
 .DS_Store

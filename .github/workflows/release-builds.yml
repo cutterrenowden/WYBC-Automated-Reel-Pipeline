@@ -1,0 +1,55 @@
+# builds the desktop app on real windows and mac runners and attaches the zips
+# to a github release. fires when a version tag lands (gh release create does that),
+# or run it by hand against an existing release:
+#   gh workflow run release-builds.yml -f tag=v0.1.0
+
+name: release-builds
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "existing release tag to attach builds to (e.g. v0.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: install
+        run: pip install -e ".[generic,app,build]"
+      - name: build
+        run: pyinstaller --noconfirm packaging/reelpipe-app.spec
+      - name: zip
+        run: Compress-Archive -Path dist\ReelPipe -DestinationPath ReelPipe-Windows.zip
+      - name: attach to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload --clobber "${{ inputs.tag || github.ref_name }}" ReelPipe-Windows.zip
+
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: install
+        run: pip install -e ".[apple,app,build]"
+      - name: build
+        run: pyinstaller --noconfirm packaging/reelpipe-app.spec
+      - name: zip
+        run: ditto -c -k --keepParent dist/ReelPipe.app ReelPipe-macOS.zip
+      - name: attach to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload --clobber "${{ inputs.tag || github.ref_name }}" ReelPipe-macOS.zip
