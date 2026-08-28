@@ -6,7 +6,7 @@ ReelPipe is a desktop app designed for Yale's WYBC Radio Station that automates 
 
 1. Download the app from the [latest release](https://github.com/cutterrenowden/WYBC-Automated-Reel-Pipeline/releases/latest): `ReelPipe-macOS.dmg` or `ReelPipe-Windows-Setup.exe`, depending on your machine.
 2. Install ffmpeg: `brew install ffmpeg` on macOS, `winget install Gyan.FFmpeg` on Windows before running the application to satisfy dependencies. If this step does not work, restart the application.
-3. macOS only: the app is unsigned, so right-click and Open the first time.
+3. macOS only: the app is unsigned, so you may need to manually approve it opening. Open up System Settings -> Privacy & Security, and open it there. You only need to do this the first time.
 
 ## Use
 
