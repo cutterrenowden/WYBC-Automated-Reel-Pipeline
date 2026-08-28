@@ -162,6 +162,20 @@ def test_api_mode_refuses_without_a_key(api, tmp_path, monkeypatch):
     assert "ANTHROPIC_API_KEY" in out["error"]
 
 
+def test_bundled_ffmpeg_wins_when_frozen(tmp_path, monkeypatch):
+    import sys
+
+    from reelpipe import media
+
+    bindir = tmp_path / "ffmpeg-bin"
+    bindir.mkdir()
+    fake = bindir / "ffmpeg"
+    fake.write_text("")
+    monkeypatch.delenv("FFMPEG", raising=False)
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path), raising=False)
+    assert media.find_tool("ffmpeg", "") == str(fake)
+
+
 def test_uninstall_removes_only_whisper_caches(api, tmp_path, monkeypatch):
     hub = tmp_path / "hfcache" / "hub"
     whisper_model = hub / "models--mlx-community--whisper-tiny"

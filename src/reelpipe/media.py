@@ -8,6 +8,7 @@ import os
 import platform
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
@@ -19,11 +20,23 @@ class MediaError(RuntimeError):
     pass
 
 
+def _bundled(name):
+    """static binaries shipped inside the packaged app."""
+    base = getattr(sys, "_MEIPASS", "")
+    if not base:
+        return ""
+    exe = Path(base) / "ffmpeg-bin" / (f"{name}.exe" if os.name == "nt" else name)
+    return str(exe) if exe.is_file() else ""
+
+
 def find_tool(name, configured=""):
-    """config value, then env override, then PATH."""
+    """config value, then env override, then the app's own binaries, then PATH."""
     for candidate in [configured, os.environ.get(name.upper(), "")]:
         if candidate and Path(candidate).expanduser().is_file():
             return str(Path(candidate).expanduser())
+    bundled = _bundled(name)
+    if bundled:
+        return bundled
     found = shutil.which(name)
     if found:
         return found

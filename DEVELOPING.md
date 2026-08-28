@@ -39,6 +39,7 @@ The app and the CLI share `config.toml` and `out/`.
 
 Builds: `bash packaging/build-macos.sh` or `packaging\build-windows.ps1`, each on its own platform.
 Or tag a release and the `release-builds` workflow builds both on GitHub and attaches them.
+Builds bundle their own static ffmpeg (GPL), so installs need nothing else.
 
 ## CLI
 

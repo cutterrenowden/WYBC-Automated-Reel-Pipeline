@@ -8,6 +8,7 @@ if (-not (Test-Path .venv)) {
 & .venv\Scripts\Activate.ps1
 
 pip install -e ".[generic,app,build]"
+python packaging\fetch_ffmpeg.py
 pyinstaller --noconfirm packaging\reelpipe-app.spec
 
 $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
@@ -21,5 +22,4 @@ if (Test-Path $iscc) {
 
 Write-Host ""
 Write-Host "built dist\ReelPipe\ReelPipe.exe"
-Write-Host "the machine needs ffmpeg on PATH: winget install Gyan.FFmpeg"
-Write-Host "and the WebView2 runtime, which windows 11 ships by default"
+Write-Host "machines need the WebView2 runtime, which windows 11 ships by default"

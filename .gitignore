@@ -16,6 +16,7 @@ config.toml
 *.zip
 *.dmg
 *.exe
+packaging/ffmpeg-bin/
 
 .pytest_cache/
 .DS_Store

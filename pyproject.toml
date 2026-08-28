@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reelpipe"
-version = "0.2.0"
+version = "0.2.1"
 description = "cut reels out of long broadcasts using whisper + an llm"
 readme = "README.md"
 # otio has no 3.14 wheels yet, so cap it
@@ -22,7 +22,7 @@ api = ["openai>=1.40", "anthropic>=0.34"]
 # the desktop window
 app = ["pywebview>=5.1", "certifi>=2024.0"]
 # bundling the desktop app into a double-clickable build
-build = ["pyinstaller>=6.10"]
+build = ["pyinstaller>=6.10", "static-ffmpeg>=2.5"]
 dev = ["pytest>=8"]
 
 [project.scripts]

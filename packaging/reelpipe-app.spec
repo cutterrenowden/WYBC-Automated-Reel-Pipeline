@@ -35,6 +35,11 @@ for package in collect:
     binaries += b
     hiddenimports += h
 
+# static ffmpeg/ffprobe fetched by packaging/fetch_ffmpeg.py, so installs are one-click
+ffmpeg_bin = ROOT / "packaging" / "ffmpeg-bin"
+if ffmpeg_bin.is_dir():
+    binaries += [(str(p), "ffmpeg-bin") for p in ffmpeg_bin.iterdir() if p.is_file()]
+
 a = Analysis(
     [str(ROOT / "packaging/launch.py")],
     pathex=[str(ROOT / "src")],
