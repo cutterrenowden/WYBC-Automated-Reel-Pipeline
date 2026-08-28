@@ -1,7 +1,6 @@
-# ReelPipe
+# ReelPipe for WYBC
 
 ReelPipe is a desktop app designed for Yale's WYBC Radio Station that automates converting podcasts or sport footage with broadcast audio into spliced sections for use on social media, namely Instagram Reels. You can upload a MP4 or MP3, and ReelPipe will automatically transcribe the audio using an included multimodal transcription model included in the installer. Then, the application uses AI to find the best moments to insert cuts. You can choose to have ReelPipe burn the subtitles into the video, or output the respective subtitle track files for you to manipulate in your favorite video editor, along with other customizable options.
-
 
 ## Install
 
@@ -14,9 +13,11 @@ ReelPipe is a desktop app designed for Yale's WYBC Radio Station that automates 
 Drop a file into the app. Pick clip count and length. Copy the prompt into ChatGPT or Claude and
 paste the reply back. Preview the clips, customize the start and end of each clip, and delete the videos if desired. Files are outputted to designated folder.
 
-In Resolve: import `handoff/reels.xml`, set the timeline vertical, reframe, drop the SRTs on a
-subtitle track.
+In Resolve, or your favorite video editing app, import `handoff/reels.xml`, set the timeline vertical if making Instagram Reels, crop if needed, and put the corresponding SRT subtitle track files to each video clip.
 
-Example in [example/](example/).
+Example and walkthrough in [example/](example/).
 
+<img width="1156" height="771" alt="Screenshot 2026-08-27 at 4 49 09 PM" src="https://github.com/user-attachments/assets/03e7ace8-28e9-408f-8af0-9a3b00ad6e5c" />
+
+<img width="1156" height="767" alt="Screenshot 2026-08-27 at 4 49 29 PM" src="https://github.com/user-attachments/assets/4fe20437-2fb3-4ad9-888d-ae5e23652ec9" />
 
