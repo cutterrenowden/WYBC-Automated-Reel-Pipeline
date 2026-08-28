@@ -56,6 +56,7 @@ header {
   color: var(--ink);
 }
 .wordmark .pipe { color: var(--muted); font-weight: 300; padding: 0 2px; }
+.tagline { font-size: 11px; color: var(--muted); letter-spacing: 0.03em; margin-top: -3px; }
 
 .doctor { display: flex; gap: 8px; }
 

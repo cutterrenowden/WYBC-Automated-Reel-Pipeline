@@ -20,7 +20,7 @@ generic = ["faster-whisper>=1.1"]
 # only needed if you pay per token instead of pasting
 api = ["openai>=1.40", "anthropic>=0.34"]
 # the desktop window
-app = ["pywebview>=5.1"]
+app = ["pywebview>=5.1", "certifi>=2024.0"]
 # bundling the desktop app into a double-clickable build
 build = ["pyinstaller>=6.10"]
 dev = ["pytest>=8"]

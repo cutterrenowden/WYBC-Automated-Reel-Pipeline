@@ -146,11 +146,11 @@ function show(name) {
 const WARN_REWRITES = [
   [/padded up to the (\d+)s floor/, "extended to meet the $1-second minimum"],
   [/trimmed to the (\d+)s cap/, "shortened to the $1-second maximum"],
-  [/start quote only matched [\d.]+.*/, "start point is uncertain — worth checking"],
-  [/end quote only matched [\d.]+.*/, "end point is uncertain — worth checking"],
-  [/fell back to the model's approximate times/, "timing is approximate — worth checking"],
-  [/end landed before the start.*/, "end point was unclear — worth checking"],
-  [/transcript had no words.*/, "no transcript words — timing unverified"],
+  [/start quote only matched [\d.]+.*/, "check the start point"],
+  [/end quote only matched [\d.]+.*/, "check the end point"],
+  [/fell back to the model's approximate times/, "timing is approximate, check it"],
+  [/end landed before the start.*/, "check the end point"],
+  [/transcript had no words.*/, "no transcript words, timing unverified"],
 ];
 
 function humanizeWarnings(warnings) {
@@ -287,7 +287,7 @@ async function resumeJob(ref) {
     if (started && started.error) { toast(started.error, true); return; }
     showRunning("Finishing " + info.slug, stages);
   } else {
-    toast("that job never finished transcribing — drop the file again to redo it", true);
+    toast("That job never finished. Drop the file again.", true);
   }
 }
 
@@ -310,7 +310,7 @@ function wireHome() {
     const isMedia = type.startsWith("video/") || type.startsWith("audio/")
       || state.videoExts.includes(ext) || state.audioExts.includes(ext);
     if (!isMedia) { toast("only video or audio files can be uploaded", true); return; }
-    if (!path) { toast("couldn't read the dropped file's path — use Browse instead", true); return; }
+    if (!path) { toast("Could not read the file. Use Browse.", true); return; }
     chooseSource(path);
   });
   zone.addEventListener("dblclick", browse);
@@ -319,7 +319,7 @@ function wireHome() {
 
 function ffmpegGate() {
   if (state.ffmpegOk) return true;
-  toast("install ffmpeg first — see the note above the drop area", true);
+  toast("Install ffmpeg first.", true);
   return false;
 }
 
@@ -495,7 +495,7 @@ function renderPaste(prefill) {
         <b>${many ? `Prompt ${index + 1} of ${state.prompts.length}` : "Prompt"}</b>
         <button class="btn ghost small copy-prompt">Copy prompt</button>
       </div>
-      <textarea placeholder="paste the model's reply here — fences and chit-chat are fine"></textarea>
+      <textarea placeholder="paste the reply here"></textarea>
       <div class="parse-note"></div>
     </div>`).join("");
   for (const block of $("prompts").querySelectorAll(".prompt-block")) {
@@ -504,7 +504,7 @@ function renderPaste(prefill) {
     area.value = (prefill && prefill[index]) || "";
     block.querySelector(".copy-prompt").onclick = async () => {
       const result = await call("copy_text", state.prompts[index]);
-      if (result && result.ok) toast("prompt copied — paste it into ChatGPT or Claude");
+      if (result && result.ok) toast("Prompt copied.");
       else toast((result && result.error) || "copy failed", true);
     };
     let debounce = null;
@@ -523,7 +523,7 @@ async function validateResponse(block) {
   if (!text.trim()) { note.textContent = ""; note.className = "parse-note"; block.dataset.ok = ""; updateApplyButton(); return; }
   const result = await call("check_response", text);
   if (result && result.ok) {
-    note.textContent = `looks good — ${result.picks} pick${result.picks === 1 ? "" : "s"} found`;
+    note.textContent = `${result.picks} pick${result.picks === 1 ? "" : "s"} found`;
     note.className = "parse-note ok";
     block.dataset.ok = "1";
   } else {
@@ -619,7 +619,7 @@ function clipCard(clip) {
 }
 
 async function deleteClip(clip) {
-  const sure = await askConfirm(`Delete clip ${String(clip.index).padStart(2, "0")} “${clip.title}”? The rendered file is removed as well.`);
+  const sure = await askConfirm(`Delete clip ${String(clip.index).padStart(2, "0")} "${clip.title}"?`);
   if (!sure) return;
   const result = await call("delete_clip", jobRef(), clip.index);
   if (!result) return;
@@ -853,6 +853,7 @@ async function checkUpdate(announce) {
   if (!info) { status.textContent = "ReelPipe"; return; }
   if (info.offline) {
     status.textContent = `ReelPipe ${info.current} · couldn't reach GitHub`;
+    status.title = info.detail || "";
     return;
   }
   if (info.update) {
@@ -873,19 +874,19 @@ async function uninstallApp() {
   const info = await call("uninstall_info");
   if (!info) return;
   if (!info.targets.length) {
-    toast("nothing to remove — no downloaded models or settings were found");
+    toast("Nothing to remove.");
     return;
   }
   const sure = await askConfirm(
-    `This removes the downloaded whisper models and app settings (${fmtBytes(info.bytes)}: ${info.targets.join(", ")}). Job outputs are kept. There is no undo — models re-download next time they're needed.`,
-    "I understand, uninstall ReelPipe", "uninstall");
+    `Removes the downloaded whisper models and app settings (${fmtBytes(info.bytes)}). Job outputs are kept.`,
+    "Uninstall", "uninstall");
   if (!sure) return;
   const result = await call("uninstall");
   if (!result) return;
   if (result.error) { toast(result.error, true); return; }
   const followUp = result.frozen
-    ? "Removed. To finish, quit ReelPipe and drag ReelPipe.app to the Trash. Your outputs are still in ~/ReelPipe/out."
-    : "Removed. To finish, run `pip uninstall reelpipe` or delete the project folder. Outputs in out/ were kept.";
+    ? "Removed. Drag ReelPipe.app to the Trash to finish."
+    : "Removed. Run pip uninstall reelpipe to finish.";
   toast(followUp, false, 12000);
 }
 
@@ -910,7 +911,7 @@ function wireStatic() {
   $("ffmpeg-recheck").onclick = async () => {
     const boot = await call("boot");
     if (boot) applyBoot(boot);
-    if (boot && boot.doctor.ffmpeg) toast("ffmpeg found — you're all set");
+    if (boot && boot.doctor.ffmpeg) toast("ffmpeg found.");
     else toast("still can't find ffmpeg", true);
   };
   $("setup-back").onclick = goHome;

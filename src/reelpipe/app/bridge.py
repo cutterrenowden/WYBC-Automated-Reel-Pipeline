@@ -479,13 +479,22 @@ class Api:
         """compare the installed version against the newest github release."""
         current = self.app_version()
         try:
+            import ssl
             import urllib.request
 
-            request = urllib.request.Request(self.RELEASES_API, headers={"Accept": "application/vnd.github+json"})
-            with urllib.request.urlopen(request, timeout=6) as reply:
+            try:
+                # frozen builds often can't find the system ca bundle, certifi always works
+                import certifi
+
+                context = ssl.create_default_context(cafile=certifi.where())
+            except Exception:
+                context = ssl.create_default_context()
+            request = urllib.request.Request(self.RELEASES_API, headers={"Accept": "application/vnd.github+json", "User-Agent": "reelpipe"})
+            with urllib.request.urlopen(request, timeout=6, context=context) as reply:
                 release = json.loads(reply.read().decode("utf-8"))
-        except Exception:
-            return {"current": current, "update": False, "offline": True}
+        except Exception as err:
+            print(f"update check failed: {err}", file=sys.stderr)
+            return {"current": current, "update": False, "offline": True, "detail": str(err)}
         latest = str(release.get("tag_name", "")).lstrip("v")
         wanted = ".dmg" if platform.system() == "Darwin" else "Setup.exe"
         asset = next((a.get("browser_download_url") for a in release.get("assets", []) if str(a.get("name", "")).endswith(wanted)), None)
