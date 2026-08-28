@@ -665,7 +665,7 @@ async function openSubEditor(clip) {
   subedit.clip = clip;
   $("sub-title").textContent = `${String(clip.index).padStart(2, "0")}  ${clip.title}`;
   $("sub-rows").innerHTML = data.cues.map((cue, i) =>
-    `<div class="cue-row"><span class="cue-time">${fmtClock(cue.start, true)}</span><input data-cue="${i}" value="${esc(cue.text)}"></div>`).join("");
+    `<div class="cue-row"><span class="cue-time">${fmtClock(cue.start, true)}</span><input type="text" data-cue="${i}" value="${esc(cue.text)}"></div>`).join("");
   $("subedit").classList.remove("hidden");
 }
 
