@@ -21,6 +21,7 @@ SolidCompression=yes
 OutputDir=..
 OutputBaseFilename=ReelPipe-Windows-Setup
 UninstallDisplayIcon={app}\ReelPipe.exe
+SetupIconFile=..\packaging\icon.ico
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; Flags: unchecked

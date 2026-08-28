@@ -20,7 +20,8 @@ for dist in ["opentimelineio", "otio-fcp-adapter", "otio-cmx3600-adapter", "reel
     datas += copy_metadata(dist)
 hiddenimports += ["otio_fcp_adapter", "otio_cmx3600_adapter"]
 
-collect = ["opentimelineio"]
+# the otio adapters ship plugin manifests as package data, so collect them fully
+collect = ["opentimelineio", "otio_fcp_adapter", "otio_cmx3600_adapter"]
 if sys.platform == "darwin":
     # mlx ships metal kernels as data, tiktoken loads its encodings via a plugin package
     collect += ["mlx", "mlx_whisper"]
@@ -52,6 +53,8 @@ a = Analysis(
 
 pyz = PYZ(a.pure)
 
+icon_file = ROOT / "packaging" / ("icon.icns" if sys.platform == "darwin" else "icon.ico")
+
 exe = EXE(
     pyz,
     a.scripts,
@@ -59,6 +62,7 @@ exe = EXE(
     name="ReelPipe",
     console=False,
     upx=False,
+    icon=str(icon_file) if icon_file.is_file() else None,
 )
 
 coll = COLLECT(exe, a.binaries, a.datas, name="ReelPipe", upx=False)
@@ -67,7 +71,7 @@ if sys.platform == "darwin":
     app = BUNDLE(
         coll,
         name="ReelPipe.app",
-        icon=None,
+        icon=str(icon_file) if icon_file.is_file() else None,
         bundle_identifier="org.wybc.reelpipe",
         info_plist={
             "NSHighResolutionCapable": True,

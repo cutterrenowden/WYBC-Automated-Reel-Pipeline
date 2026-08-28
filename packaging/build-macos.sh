@@ -10,6 +10,7 @@ source .venv/bin/activate
 
 pip install -e ".[apple,app,build]"
 python packaging/fetch_ffmpeg.py
+python packaging/make_icon.py
 pyinstaller --noconfirm packaging/reelpipe-app.spec
 
 rm -rf dist/dmg-root

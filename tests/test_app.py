@@ -258,3 +258,18 @@ def test_burn_captions_after_the_fact(api, tmp_path):
     burned = events(api, "done")[-1]["results"]
     assert burned["burned"] is True
     assert mp4.stat().st_mtime > before
+
+    # fixing subtitle text rewrites the srt, re-burns the clip, and survives recuts
+    cues = api.get_subtitles(slug, 1)["cues"]
+    texts = [c["text"] for c in cues]
+    texts[0] = "HE RISES FROM DEEP"
+    before_edit = mp4.stat().st_mtime
+    edited = api.set_subtitles(slug, 1, texts)
+    assert edited.get("ok"), edited
+    srt = mp4.with_suffix(".srt")
+    assert "HE RISES FROM DEEP" in srt.read_text(encoding="utf-8")
+    assert mp4.stat().st_mtime > before_edit, "burned jobs re-render on subtitle save"
+
+    clip1 = burned["clips"][0]
+    assert api.update_clip(slug, 1, clip1["start"], clip1["start"] + 6.0).get("ok")
+    assert "HE RISES FROM DEEP" in srt.read_text(encoding="utf-8"), "edits live in the transcript, so recuts keep them"

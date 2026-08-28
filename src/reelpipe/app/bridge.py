@@ -20,7 +20,7 @@ from .. import cut as cut_mod
 from ..cli import copy_to_clipboard
 from ..paths import Job
 from ..transcribe import backend_report
-from ..transcript import Transcript
+from ..transcript import Transcript, Word, write_srt, write_txt
 
 ASR_MODELS = ["tiny", "base", "small", "medium", "large-v3", "large-v3-turbo"]
 ENV_KEYS = {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY"}
@@ -237,7 +237,14 @@ class Api:
         if not job.clips_json.is_file():
             self._stage("anchor", pipeline.apply_selection, cfg, job)
         self._stage("cut", pipeline.cut, cfg, job)
-        self._stage("handoff", pipeline.handoff, cfg, job)
+        try:
+            self._stage("handoff", pipeline.handoff, cfg, job)
+        except InterruptedError:
+            raise
+        except Exception as err:
+            # the clips are the product; a broken timeline writer shouldn't sink the run
+            self._emit("stage", stage="handoff", state="error")
+            self._emit("log", line=f"handoff failed: {err}")
         self._emit("done", slug=job.slug, ref=str(job.root), results=self.get_results(str(job.root)))
 
     def check_response(self, text):
@@ -442,6 +449,79 @@ class Api:
         return {"ok": True, "results": self.get_results(slug)}
 
     # ---- desktop conveniences ----------------------------------------------
+
+    # ---- subtitle text fixes -----------------------------------------------
+
+    @staticmethod
+    def _replace_cue_words(transcript, cue, text):
+        """swap the words inside one cue's timespan. timing stays, words change."""
+        eps = 1e-4
+        affected = []
+        for segment in transcript.segments:
+            hits = [w for w in segment.words if w.start >= cue.start - eps and w.end <= cue.end + eps]
+            if hits:
+                affected.append((segment, hits))
+        if not affected:
+            return False
+        start = min(w.start for _, hits in affected for w in hits)
+        end = max(w.end for _, hits in affected for w in hits)
+        for segment, hits in affected:
+            gone = {id(w) for w in hits}
+            segment.words = [w for w in segment.words if id(w) not in gone]
+        pieces = text.split()
+        width = (end - start) / len(pieces)
+        home = affected[0][0]
+        for i, piece in enumerate(pieces):
+            home.words.append(Word(piece, start + i * width, start + (i + 1) * width))
+        home.words.sort(key=lambda w: w.start)
+        for segment, _ in affected:
+            segment.text = " ".join(w.text for w in segment.words)
+        return True
+
+    def get_subtitles(self, slug, index):
+        cfg, job = self._open(slug)
+        clips = anchor.load(job.clips_json)
+        clip = next((c for c in clips if c.index == int(index)), None)
+        if clip is None:
+            return {"error": f"no clip {index}"}
+        transcript = Transcript.load(job.transcript_json)
+        cues = subtitles.group(anchor.words_between(transcript, clip.start, clip.end))
+        return {"cues": [{"start": cue.start, "end": cue.end, "text": cue.text} for cue in cues]}
+
+    def set_subtitles(self, slug, index, texts):
+        cfg, job = self._open(slug)
+        if self._busy():
+            return {"error": "wait for the current job to finish"}
+        clips = anchor.load(job.clips_json)
+        clip = next((c for c in clips if c.index == int(index)), None)
+        if clip is None:
+            return {"error": f"no clip {index}"}
+        transcript = Transcript.load(job.transcript_json)
+        cues = subtitles.group(anchor.words_between(transcript, clip.start, clip.end))
+        texts = [str(t) for t in (texts or [])]
+        if len(texts) != len(cues):
+            return {"error": "the subtitles changed underneath, reopen the editor"}
+        changed = False
+        for cue, new in zip(cues, texts):
+            new = " ".join(new.split())
+            if new and new != cue.text:
+                changed = self._replace_cue_words(transcript, cue, new) or changed
+        if not changed:
+            return {"ok": True, "clip": self._clip_row(cfg, job, clip)}
+        transcript.save(job.transcript_json)
+        write_srt(transcript.segments, job.transcript_srt)
+        write_txt(transcript, job.transcript_txt)
+        words = anchor.words_between(transcript, clip.start, clip.end)
+        subtitles.write_clip_srt(words, clip, job.clips_dir / f"{clip.slug}.srt")
+        info = job.read_meta().get("media", {})
+        audio_only = not info.get("has_video", True)
+        if cfg.render.burn_subs and not audio_only:
+            frame = (info.get("width") or 1920, info.get("height") or 1080)
+            try:
+                cut_mod.cut_clip(cfg, job.source, clip, job.clips_dir / f"{clip.slug}.mp4", cues=subtitles.group(words), vertical=cfg.render.vertical, frame=frame)
+            except media.MediaError as err:
+                return {"error": str(err)}
+        return {"ok": True, "clip": self._clip_row(cfg, job, clip)}
 
     def open_folder(self, slug):
         _, job = self._open(slug)

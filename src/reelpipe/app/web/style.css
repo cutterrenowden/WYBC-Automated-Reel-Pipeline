@@ -526,6 +526,24 @@ input:focus, textarea:focus { outline: 2px solid rgba(44, 102, 242, 0.35); borde
 .ed-dur { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .ed-buttons { display: flex; gap: 8px; }
 
+.sub-rows {
+  max-height: 52vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.cue-row { display: flex; align-items: center; gap: 10px; }
+.cue-time {
+  font-size: 12px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+  width: 64px;
+  text-align: right;
+}
+
 .confirm-panel {
   background: var(--panel);
   border: 1px solid var(--line);

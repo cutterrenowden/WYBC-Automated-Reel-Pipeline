@@ -601,7 +601,7 @@ function clipCard(clip) {
       <button class="btn small adjust">Adjust splice</button>
       <div class="clip-files">
         <button class="show-media">${esc((clip.ext || ".mp4").slice(1))}</button>
-        <button class="show-srt">srt</button>
+        <button class="edit-subs">subtitles</button>
         <button class="copy-caption">caption</button>
         <button class="delete">delete</button>
       </div>
@@ -612,7 +612,7 @@ function clipCard(clip) {
   card.querySelector(".adjust").onclick = () => openEditor(clip);
   card.querySelector(".delete").onclick = () => deleteClip(clip);
   card.querySelector(".show-media").onclick = () => call("reveal", jobRef(), `clips/${clip.slug}${clip.ext || ".mp4"}`);
-  card.querySelector(".show-srt").onclick = () => call("reveal", jobRef(), `clips/${clip.slug}.srt`);
+  card.querySelector(".edit-subs").onclick = () => openSubEditor(clip);
   card.querySelector(".copy-caption").onclick = async () => {
     const blob = [clip.caption, (clip.hashtags || []).join(" ")].filter(Boolean).join("\n");
     const result = await call("copy_text", blob || clip.title);
@@ -651,6 +651,48 @@ function closeTheater() {
   theater.parent.insertBefore(video, theater.next);
   theater.video = theater.parent = theater.next = null;
   $("theater").classList.add("hidden");
+}
+
+/* ---------- subtitle text editor ---------- */
+
+const subedit = { clip: null };
+
+async function openSubEditor(clip) {
+  const data = await call("get_subtitles", jobRef(), clip.index);
+  if (!data) return;
+  if (data.error) { toast(data.error, true); return; }
+  if (!(data.cues || []).length) { toast("No subtitles in this clip."); return; }
+  subedit.clip = clip;
+  $("sub-title").textContent = `${String(clip.index).padStart(2, "0")}  ${clip.title}`;
+  $("sub-rows").innerHTML = data.cues.map((cue, i) =>
+    `<div class="cue-row"><span class="cue-time">${fmtClock(cue.start, true)}</span><input data-cue="${i}" value="${esc(cue.text)}"></div>`).join("");
+  $("subedit").classList.remove("hidden");
+}
+
+function closeSubEditor() {
+  $("subedit").classList.add("hidden");
+  subedit.clip = null;
+}
+
+async function saveSubtitles() {
+  const texts = [...$("sub-rows").querySelectorAll("input")].map((el) => el.value);
+  const button = $("sub-save");
+  button.disabled = true;
+  button.textContent = "Saving…";
+  const result = await call("set_subtitles", jobRef(), subedit.clip.index, texts);
+  button.disabled = false;
+  button.textContent = "Save";
+  if (!result) return;
+  if (result.error) { toast(result.error, true); return; }
+  if (result.clip) {
+    state.vcache[result.clip.index] = (state.vcache[result.clip.index] || 0) + 1;
+    const position = state.results.clips.findIndex((c) => c.index === result.clip.index);
+    if (position >= 0) state.results.clips[position] = result.clip;
+    const card = document.querySelector(`.clip-card[data-index="${result.clip.index}"]`);
+    if (card) card.replaceWith(clipCard(result.clip));
+  }
+  closeSubEditor();
+  toast("Subtitles updated.");
 }
 
 /* ---------- confirm dialog ---------- */
@@ -753,10 +795,14 @@ function wireEditor() {
   $("theater-close").onclick = closeTheater;
   $("theater").addEventListener("mousedown", (e) => { if (e.target === $("theater") || e.target === $("theater-slot")) closeTheater(); });
   $("ed-expand").onclick = () => openTheater($("ed-video"));
+  $("sub-close").onclick = closeSubEditor;
+  $("sub-save").onclick = saveSubtitles;
+  $("subedit").addEventListener("mousedown", (e) => { if (e.target === $("subedit")) closeSubEditor(); });
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
     if (theater.video) closeTheater();
     else if (confirmResolve) settleConfirm(false);
+    else if (subedit.clip) closeSubEditor();
     else if (editor.clip) closeEditor();
   });
 

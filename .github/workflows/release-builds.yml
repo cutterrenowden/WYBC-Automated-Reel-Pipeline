@@ -32,6 +32,8 @@ jobs:
         run: pip install -e ".[generic,app,build]"
       - name: bundle ffmpeg
         run: python packaging/fetch_ffmpeg.py
+      - name: make icon
+        run: python packaging/make_icon.py
       - name: build
         run: pyinstaller --noconfirm packaging/reelpipe-app.spec
       - name: build installer
@@ -58,6 +60,8 @@ jobs:
         run: pip install -e ".[apple,app,build]"
       - name: bundle ffmpeg
         run: python packaging/fetch_ffmpeg.py
+      - name: make icon
+        run: python packaging/make_icon.py
       - name: build
         run: pyinstaller --noconfirm packaging/reelpipe-app.spec
       - name: package dmg

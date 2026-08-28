@@ -9,6 +9,7 @@ if (-not (Test-Path .venv)) {
 
 pip install -e ".[generic,app,build]"
 python packaging\fetch_ffmpeg.py
+python packaging\make_icon.py
 pyinstaller --noconfirm packaging\reelpipe-app.spec
 
 $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
