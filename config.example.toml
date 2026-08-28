@@ -17,6 +17,7 @@ device = "auto"           # faster-whisper only
 count = 8
 min_seconds = 12.0
 max_seconds = 60.0
+target_seconds = 0.0      # >0: aim near this and let the llm pick each length. beats min/max
 lead_in = 2.0             # announcers call the play a beat late, so back up
 lead_out = 1.5
 pause_snap = 0.35         # only drift an edge into a gap at least this long

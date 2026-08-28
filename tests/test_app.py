@@ -239,3 +239,22 @@ def test_media_server_ranges_and_traversal(tmp_path):
         assert reply.status == 404
     finally:
         httpd.shutdown()
+
+
+def test_burn_captions_after_the_fact(api, tmp_path):
+    video = make_video(tmp_path / "late.mp4")
+    assert api.start(str(video), {"llm_mode": "manual", "clips_count": 2}) == {"ok": True}
+    wait(api)
+    slug = events(api, "awaiting")[0]["slug"]
+    assert api.submit_responses(slug, [RESPONSE]) == {"ok": True}
+    wait(api)
+    first = events(api, "done")[0]["results"]
+    assert first["burned"] is False
+    mp4 = tmp_path / "out" / "video" / slug / "clips" / f"{first['clips'][0]['slug']}.mp4"
+    before = mp4.stat().st_mtime
+
+    assert api.burn_captions(slug) == {"ok": True}
+    wait(api)
+    burned = events(api, "done")[-1]["results"]
+    assert burned["burned"] is True
+    assert mp4.stat().st_mtime > before

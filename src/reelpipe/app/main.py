@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -71,6 +72,24 @@ def main():
         background_color="#fafbfc",
     )
     api.window = window
+
+    def bind_drop(*_):
+        # plain js listeners never receive dropped file paths; pywebview only
+        # captures them for handlers registered through its own dom api
+        def on_drop(event):
+            files = (event.get("dataTransfer") or {}).get("files") or []
+            for dropped in files:
+                path = dropped.get("pywebviewFullPath")
+                if path:
+                    window.evaluate_js(f"reelApp.onNativeDrop({json.dumps(path)})")
+                    return
+
+        try:
+            window.dom.get_element("#dropzone").events.drop += on_drop
+        except Exception:
+            pass  # browse still works
+
+    window.events.loaded += bind_drop
     webview.start(enable_native_fullscreen, debug=os.environ.get("REELPIPE_DEBUG") == "1")
     return 0
 

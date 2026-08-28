@@ -110,6 +110,7 @@ class Api:
             "asr_model": cfg.asr.model if cfg.asr.model in ASR_MODELS else "large-v3-turbo",
             "asr_language": cfg.asr.language,
             "clips_count": cfg.clips.count,
+            "clips_target_seconds": cfg.clips.target_seconds,
             "clips_min_seconds": cfg.clips.min_seconds,
             "clips_max_seconds": cfg.clips.max_seconds,
             "clips_lead_in": cfg.clips.lead_in,
@@ -269,6 +270,25 @@ class Api:
 
         return self._launch(work)
 
+    def burn_captions(self, slug):
+        """re-render every clip with captions drawn in, and keep them on for recuts."""
+        cfg, job = self._open(slug)
+        if not job.clips_json.is_file():
+            return {"error": "no clips to burn yet"}
+        options = job.read_meta().get("app") or {}
+        options["render_burn_subs"] = True
+        job.write_meta({"app": options})
+        cfg.render.burn_subs = True
+
+        def work():
+            try:
+                self._stage("cut", pipeline.cut, cfg, job)
+                self._emit("done", slug=job.slug, ref=str(job.root), results=self.get_results(str(job.root)))
+            except (Exception, SystemExit) as err:
+                self._fail(err, job.slug)
+
+        return self._launch(work)
+
     def finish_job(self, slug):
         """resume a job that already has responses or anchored clips."""
         cfg, job = self._open(slug)
@@ -339,6 +359,7 @@ class Api:
             "ref": str(job.root),
             "root": str(job.root),
             "duration": info.get("duration", 0.0),
+            "burned": bool(cfg.render.burn_subs),
             "clips": clips,
             "handoff": handoff_files,
             "report": report.read_text(encoding="utf-8") if report.is_file() else "",

@@ -25,6 +25,9 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
+      - name: version matches tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: python -c "import tomllib, os, sys; v = tomllib.load(open('pyproject.toml', 'rb'))['project']['version']; t = os.environ['GITHUB_REF_NAME'].lstrip('v'); sys.exit(f'pyproject says {v} but the tag says {t}. bump pyproject, push, then tag.') if v != t else None"
       - name: install
         run: pip install -e ".[generic,app,build]"
       - name: bundle ffmpeg
@@ -48,6 +51,9 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
+      - name: version matches tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: python -c "import tomllib, os, sys; v = tomllib.load(open('pyproject.toml', 'rb'))['project']['version']; t = os.environ['GITHUB_REF_NAME'].lstrip('v'); sys.exit(f'pyproject says {v} but the tag says {t}. bump pyproject, push, then tag.') if v != t else None"
       - name: install
         run: pip install -e ".[apple,app,build]"
       - name: bundle ffmpeg

@@ -28,6 +28,7 @@ class Clips:
     count: int = 8
     min_seconds: float = 12.0
     max_seconds: float = 60.0
+    target_seconds: float = 0.0
     lead_in: float = 2.0
     lead_out: float = 1.5
     pause_snap: float = 0.35
@@ -73,6 +74,16 @@ class Config:
     prompt: Prompt = field(default_factory=Prompt)
     llm: Llm = field(default_factory=Llm)
     render: Render = field(default_factory=Render)
+
+
+def clip_bounds(clips):
+    """a rough target derives loose bounds so the llm's choice survives anchoring.
+    otherwise the explicit min/max range applies, cap winning over floor."""
+    if clips.target_seconds > 0:
+        low = max(6.0, clips.target_seconds * 0.4)
+        high = max(clips.target_seconds * 2.0, clips.target_seconds + 15.0)
+        return low, high
+    return min(clips.min_seconds, clips.max_seconds), clips.max_seconds
 
 
 def _fill(obj, data):

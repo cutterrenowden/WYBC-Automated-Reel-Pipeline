@@ -40,6 +40,7 @@ def build_parser():
         p.add_argument("--count", dest="clips_count", type=int, help="how many clips to ask for")
         p.add_argument("--min-seconds", dest="clips_min_seconds", type=float)
         p.add_argument("--max-seconds", dest="clips_max_seconds", type=float)
+        p.add_argument("--length", dest="clips_target_seconds", type=float, help="rough seconds per clip, the llm decides each one")
         p.add_argument("--energy", dest="energy_enabled", action="store_true", default=None, help="mark loud moments for the llm")
 
     tr = sub.add_parser("transcribe", help="extract audio, run whisper, write the prompt")
@@ -64,6 +65,7 @@ def build_parser():
     ap.add_argument("--lead-out", dest="clips_lead_out", type=float)
     ap.add_argument("--min-seconds", dest="clips_min_seconds", type=float)
     ap.add_argument("--max-seconds", dest="clips_max_seconds", type=float)
+    ap.add_argument("--length", dest="clips_target_seconds", type=float, help="rough seconds per clip")
 
     cu = sub.add_parser("cut", help="render clips + per-clip srt")
     cu.add_argument("job")

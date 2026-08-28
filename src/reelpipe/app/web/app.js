@@ -175,6 +175,9 @@ function segmented(el, value, onchange) {
 /* ---------- events from python ---------- */
 
 window.reelApp = {
+  onNativeDrop(path) {
+    chooseSource(path);
+  },
   onEvent(event) {
     switch (event.type) {
       case "log": appendLog(event.line); break;
@@ -301,18 +304,8 @@ function wireHome() {
   for (const eventName of ["dragleave", "drop"]) {
     zone.addEventListener(eventName, (e) => { e.preventDefault(); zone.classList.remove("hover"); });
   }
-  zone.addEventListener("drop", (e) => {
-    const file = e.dataTransfer.files && e.dataTransfer.files[0];
-    if (!file) return;
-    const path = file.pywebviewFullPath || file.path;
-    const ext = (path || file.name || "").split(".").pop().toLowerCase();
-    const type = file.type || "";
-    const isMedia = type.startsWith("video/") || type.startsWith("audio/")
-      || state.videoExts.includes(ext) || state.audioExts.includes(ext);
-    if (!isMedia) { toast("only video or audio files can be uploaded", true); return; }
-    if (!path) { toast("Could not read the file. Use Browse.", true); return; }
-    chooseSource(path);
-  });
+  // dropped file paths arrive through python (pywebview only exposes them to
+  // handlers registered via its dom api), see reelApp.onNativeDrop
   zone.addEventListener("dblclick", browse);
   $("browse").addEventListener("click", (e) => { e.stopPropagation(); browse(); });
 }
@@ -365,6 +358,7 @@ function buildSetupForm() {
     input.addEventListener("input", () => output.textContent = fmt(input.value));
   };
   bindRange($("opt-count"), $("out-count"), d.clips_count, (v) => v);
+  bindRange($("opt-length"), $("out-length"), d.clips_target_seconds || 30, (v) => `~${v}s`);
   bindRange($("opt-min"), $("out-min"), d.clips_min_seconds, (v) => `${v}s`);
   bindRange($("opt-max"), $("out-max"), d.clips_max_seconds, (v) => `${v}s`);
   $("opt-min").addEventListener("input", () => {
@@ -379,6 +373,12 @@ function buildSetupForm() {
       $("out-min").textContent = `${$("opt-min").value}s`;
     }
   });
+  const lengthPanels = (mode) => {
+    $("len-auto").classList.toggle("hidden", mode !== "auto");
+    $("len-range").classList.toggle("hidden", mode !== "range");
+  };
+  segmented($("opt-lenmode"), "auto", lengthPanels);
+  lengthPanels("auto");
 
   $("opt-leadin").value = d.clips_lead_in;
   $("opt-leadout").value = d.clips_lead_out;
@@ -397,6 +397,7 @@ function collectOptions() {
     asr_model: $("opt-model").dataset.value,
     asr_language: $("opt-language").value.trim(),
     clips_count: Number($("opt-count").value),
+    clips_target_seconds: $("opt-lenmode").dataset.value === "auto" ? Number($("opt-length").value) : 0,
     clips_min_seconds: Number($("opt-min").value),
     clips_max_seconds: Number($("opt-max").value),
     clips_lead_in: Number($("opt-leadin").value) || 0,
@@ -571,6 +572,8 @@ function renderResults() {
     btn.onclick = () => call("reveal", jobRef(), "handoff/" + btn.dataset.file);
   }
   $("handoff-card").classList.toggle("hidden", !(results.handoff || []).length);
+  const burnable = !results.burned && (results.clips || []).some((c) => c.kind === "video" && c.rendered);
+  $("burn-all").classList.toggle("hidden", !burnable);
 }
 
 function clipCard(clip) {
@@ -919,6 +922,12 @@ function wireStatic() {
   $("paste-home").onclick = goHome;
   $("apply").onclick = applyResponses;
   $("open-folder").onclick = () => call("open_folder", jobRef());
+  $("burn-all").onclick = async () => {
+    const started = await call("burn_captions", jobRef());
+    if (!started) return;
+    if (started.error) { toast(started.error, true); return; }
+    showRunning("Burning captions", ["cut"]);
+  };
   $("new-job").onclick = goHome;
   for (const btn of document.querySelectorAll("[data-open]")) {
     btn.onclick = () => call("open_external", btn.dataset.open);

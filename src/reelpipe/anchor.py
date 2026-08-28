@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from pathlib import Path
 
+from .config import clip_bounds
 from .paths import slugify
 
 TOKEN = re.compile(r"[a-z0-9']+")
@@ -183,12 +184,11 @@ def anchor_one(cfg, transcript, pick, index, word_index=None):
         end = snap_end(words, last.end + cfg.clips.lead_out, cfg.clips.pause_snap)
 
     limit = transcript.duration or (words[-1].end if words else end)
-    # the cap always wins, so a config with min above max can't fight itself
-    floor = min(cfg.clips.min_seconds, cfg.clips.max_seconds)
+    floor, cap = clip_bounds(cfg.clips)
     start, end = max(0.0, start), min(end, limit)
-    if end - start > cfg.clips.max_seconds:
-        end = start + cfg.clips.max_seconds
-        warnings.append(f"trimmed to the {cfg.clips.max_seconds:.0f}s cap")
+    if end - start > cap:
+        end = start + cap
+        warnings.append(f"trimmed to the {cap:.0f}s cap")
     if end - start < floor:
         end = min(limit, start + floor)
         start = max(0.0, min(start, end - floor))

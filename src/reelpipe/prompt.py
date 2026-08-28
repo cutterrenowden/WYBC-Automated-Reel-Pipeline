@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from .config import clip_bounds
 from .transcript import llm_view
 
 SCHEMA = """[
@@ -45,7 +46,7 @@ PROFILES = {"sports": SPORTS, "generic": GENERIC}
 
 RULES = """Rules:
 - Pick the {count} best moments, ranked best first.
-- Each clip must be between {min_seconds:.0f} and {max_seconds:.0f} seconds long.
+- {length_rule}
 - Start the clip on the buildup, not on the payoff. The announcer usually describes a play a beat
   after it happens, so back up to where the sequence starts.
 - Start and end on a complete thought. Never start or end mid-sentence.
@@ -92,7 +93,15 @@ def render(cfg, segments, hot_windows=(), part=1, total=1):
     if total > 1:
         share = max(2, -(-cfg.clips.count // total))
         header += f"\n\nThis is part {part} of {total} of one long recording. Pick the best {share} moments from this part only."
-    rules = RULES.format(count=max(2, -(-cfg.clips.count // total)) if total > 1 else cfg.clips.count, min_seconds=cfg.clips.min_seconds, max_seconds=cfg.clips.max_seconds, schema=SCHEMA)
+    if cfg.clips.target_seconds > 0:
+        low, high = clip_bounds(cfg.clips)
+        length_rule = (
+            f"Aim for roughly {cfg.clips.target_seconds:.0f} seconds per clip, but let each moment decide: "
+            f"shorter when it lands quickly, longer when it needs room. Stay between {low:.0f} and {high:.0f} seconds."
+        )
+    else:
+        length_rule = f"Each clip must be between {cfg.clips.min_seconds:.0f} and {cfg.clips.max_seconds:.0f} seconds long."
+    rules = RULES.format(count=max(2, -(-cfg.clips.count // total)) if total > 1 else cfg.clips.count, length_rule=length_rule, schema=SCHEMA)
     loud = LOUD_NOTE if hot_windows else ""
     body = llm_view(segments, hot_windows, cfg.energy.window)
     return f"{header}\n\n{rules}\n{loud}\nTranscript (timestamps are h:mm:ss from the start of the recording):\n\n{body}"

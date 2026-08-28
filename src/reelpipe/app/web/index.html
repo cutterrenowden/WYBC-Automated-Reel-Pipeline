@@ -114,14 +114,27 @@
         </div>
       </div>
 
-      <div class="field-row">
-        <div class="field">
-          <label>Min length <output id="out-min"></output></label>
-          <input type="range" id="opt-min" min="5" max="60" step="1">
+      <div class="field">
+        <label>Clip length</label>
+        <div class="segmented" id="opt-lenmode">
+          <button data-value="auto">Auto</button>
+          <button data-value="range">Exact range</button>
         </div>
-        <div class="field">
-          <label>Max length <output id="out-max"></output></label>
-          <input type="range" id="opt-max" min="15" max="180" step="5">
+        <div id="len-auto" class="len-panel">
+          <label>Rough length <output id="out-length"></output></label>
+          <input type="range" id="opt-length" min="10" max="90" step="5">
+        </div>
+        <div id="len-range" class="len-panel hidden">
+          <div class="field-row">
+            <div class="field">
+              <label>Min <output id="out-min"></output></label>
+              <input type="range" id="opt-min" min="5" max="60" step="1">
+            </div>
+            <div class="field">
+              <label>Max <output id="out-max"></output></label>
+              <input type="range" id="opt-max" min="15" max="180" step="5">
+            </div>
+          </div>
         </div>
       </div>
 
@@ -140,7 +153,7 @@
       </div>
 
       <div class="field">
-        <label>Clip picking <span class="hint">paste is free, API costs tokens</span></label>
+        <label>Clip picking</label>
         <div class="segmented" id="opt-llm">
           <button data-value="manual">Paste into ChatGPT / Claude</button>
           <button data-value="api">Call an API</button>
@@ -222,6 +235,7 @@
         <div class="setup-meta" id="res-path"></div>
       </div>
       <div class="paste-links">
+        <button class="btn ghost small hidden" id="burn-all">Burn captions</button>
         <button class="btn ghost small" id="open-folder">Open folder</button>
         <button class="btn primary small" id="new-job">New job</button>
       </div>

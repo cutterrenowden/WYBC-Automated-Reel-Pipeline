@@ -65,3 +65,18 @@ def test_loud_markers_only_show_when_asked(transcript):
 
 def test_llm_view_has_timestamps(transcript):
     assert llm_view(transcript.segments).startswith("[0:00]")
+
+
+def test_target_length_softens_the_rules(cfg, transcript):
+    from reelpipe import prompt
+    from reelpipe.config import clip_bounds
+
+    cfg.clips.target_seconds = 30.0
+    text = prompt.build(cfg, transcript)[0]
+    assert "roughly 30 seconds" in text
+    assert "Stay between 12 and 60 seconds" in text
+    assert clip_bounds(cfg.clips) == (12.0, 60.0)
+
+    cfg.clips.target_seconds = 0.0
+    text = prompt.build(cfg, transcript)[0]
+    assert "must be between" in text
