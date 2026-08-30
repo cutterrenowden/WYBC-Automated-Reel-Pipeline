@@ -64,8 +64,8 @@ def main():
     diagnostics.setup(home / "logs")
     api = bridge.Api(home)
     api.out_dir.mkdir(parents=True, exist_ok=True)
-    # a per-launch secret the ui echoes back on every /api call; a cross-site page
-    # can neither read it nor forge the custom header cross-origin
+    # a per-launch secret the ui sends back on every /api call; a cross-site page
+    # can't read the secret and can't set the custom header cross-origin
     token = secrets.token_urlsafe(24)
     _, port = server.start(web_root(), api.out_dir, api, token)
     window = webview.create_window(

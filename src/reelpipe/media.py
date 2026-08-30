@@ -20,6 +20,11 @@ class MediaError(RuntimeError):
     pass
 
 
+# on windows a windowed app gives every console child (ffmpeg, ffprobe) its own
+# terminal window; NO_WINDOW stops the terminal window. zero on other systems.
+NO_WINDOW = 0x08000000 if os.name == "nt" else 0
+
+
 def _bundled(name):
     """static binaries shipped inside the packaged app."""
     base = getattr(sys, "_MEIPASS", "")
@@ -54,7 +59,7 @@ def ffprobe_bin(cfg):
 
 def run(cmd, capture=True, cwd=None):
     """no shell, ever. raises with stderr attached so errors are readable."""
-    proc = subprocess.run([str(c) for c in cmd], capture_output=capture, text=True, cwd=cwd)
+    proc = subprocess.run([str(c) for c in cmd], capture_output=capture, text=True, cwd=cwd, creationflags=NO_WINDOW)
     if proc.returncode != 0:
         tail = (proc.stderr or "").strip().splitlines()[-12:]
         raise MediaError(f"{Path(str(cmd[0])).name} failed ({proc.returncode}):\n" + "\n".join(tail))

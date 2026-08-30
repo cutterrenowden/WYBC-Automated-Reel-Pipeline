@@ -104,8 +104,8 @@ class Api:
             try:
                 self.window.evaluate_js(f"reelApp.onEvent({json.dumps(event)})")
             except Exception:
-                # the poller is the reliable channel on a degraded webview; a failed
-                # push must never sink the worker thread mid-stage
+                # when the webview is broken the poller still delivers events, so a
+                # failed push here must not stop the worker thread mid-stage
                 pass
 
     def _busy(self):
@@ -374,7 +374,7 @@ class Api:
         except InterruptedError:
             raise
         except Exception as err:
-            # the clips are the product; a broken timeline writer shouldn't sink the run
+            # the clips are what matters; a broken timeline writer should not stop the run
             self._emit("stage", stage="handoff", state="error")
             self._emit("log", line=f"handoff failed: {err}")
         self._emit("done", slug=job.slug, ref=str(job.root), results=self.get_results(str(job.root)))

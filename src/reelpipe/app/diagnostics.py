@@ -1,6 +1,6 @@
-"""crash visibility. everything the app does is tee'd to a rolling log file, uncaught
-exceptions land there too, and 'report a problem' opens a prefilled github issue with
-the recent tail. there is no server to phone home to, so reports go where the code lives.
+"""crash visibility. the app writes a log file, uncaught exceptions go there too, and
+'report a problem' opens a prefilled github issue with the recent log. there is no
+server to send reports to, so they go to github, where the code lives.
 """
 
 from __future__ import annotations

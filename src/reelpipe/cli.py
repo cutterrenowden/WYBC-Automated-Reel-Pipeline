@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -15,9 +16,11 @@ CLIPBOARD_TOOLS = [["pbcopy"], ["clip.exe"], ["clip"], ["wl-copy"], ["xclip", "-
 
 def copy_to_clipboard(text):
     """best effort, returns the tool we used or none."""
+    # keep clip.exe from flashing a console window in the windowed app
+    no_window = 0x08000000 if os.name == "nt" else 0
     for cmd in CLIPBOARD_TOOLS:
         if shutil.which(cmd[0]):
-            subprocess.run(cmd, input=text.encode("utf-8"), check=True)
+            subprocess.run(cmd, input=text.encode("utf-8"), check=True, creationflags=no_window)
             return cmd[0]
     return None
 

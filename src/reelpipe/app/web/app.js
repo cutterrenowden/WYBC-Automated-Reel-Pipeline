@@ -125,7 +125,7 @@ function api() {
 const AUTH_TOKEN = new URLSearchParams(location.search).get("t") || "";
 
 async function httpCall(name, args) {
-  // the custom header is what makes this uforgeable cross-origin; the token proves same-app
+  // a browser can't set a custom header cross-origin, and the token proves the request came from the app page
   const reply = await fetch(`/api/${name}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Reelpipe": AUTH_TOKEN },
@@ -518,9 +518,9 @@ function showRunning(title, stages, sub) {
   cancelBtn.textContent = "Cancel";
   cancelBtn.disabled = false;
   cancelBtn.onclick = async () => {
-    await call("cancel");
-    cancelBtn.textContent = "Cancelling…";
+    cancelBtn.innerHTML = 'Cancelling<span class="dots"></span>';
     cancelBtn.disabled = true;
+    await call("cancel");
   };
   startTimer();
   show("running");
@@ -550,7 +550,7 @@ function setStage(stage, stageState) {
   if (!li) return;
   li.classList.remove("running", "done", "error");
   li.classList.add(stageState);
-  // the progress bar belongs to transcription; clear it as soon as we leave that stage
+  // the progress bar is only for transcription; clear it once we leave that stage
   if (stage === "transcribe" && stageState === "running") setProgress(0);
   else if (stage === "transcribe") setProgress(null);
   else if (stageState === "running") setProgress(null);

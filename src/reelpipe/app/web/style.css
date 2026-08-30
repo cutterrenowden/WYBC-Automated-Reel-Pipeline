@@ -261,6 +261,15 @@ input:focus, textarea:focus { outline: 2px solid rgba(44, 102, 242, 0.35); borde
 .elapsed { font-variant-numeric: tabular-nums; color: var(--muted); }
 
 .run-sub { font-size: 13px; color: var(--muted); margin-bottom: 14px; overflow-wrap: anywhere; }
+
+/* one, two, three dots so a slow cancel still looks alive */
+.dots::after { content: ""; animation: dots 1.2s steps(1, end) infinite; }
+@keyframes dots {
+  0%   { content: "."; }
+  33%  { content: ".."; }
+  66%  { content: "..."; }
+  100% { content: "."; }
+}
 .progress { height: 6px; background: var(--bar-bg); margin: 0 0 16px; }
 #progress-bar { height: 100%; width: 0; background: var(--accent); transition: width 0.3s ease; }
 

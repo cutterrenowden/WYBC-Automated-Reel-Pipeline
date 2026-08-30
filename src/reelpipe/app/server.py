@@ -39,9 +39,8 @@ class _Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _authed(self):
-        """defeat local CSRF: a per-launch token the attacker can't read, plus a
-        custom header browsers can't forge cross-origin without a blocked preflight.
-        a cross-site page also can't match our Origin."""
+        """block /api calls from other local pages: a per-launch token other pages
+        can't read, a custom header a browser can't set cross-origin, an origin check."""
         if self.headers.get("X-Reelpipe") != self.token:
             return False
         origin = self.headers.get("Origin")
@@ -72,7 +71,7 @@ class _Handler(BaseHTTPRequestHandler):
             return
         try:
             # a returned {"error": ...} is a normal value; a raised exception is a
-            # failure, sent as 5xx so the client rejects it like the js bridge would
+            # failure, sent as 5xx so the client rejects the call like the js bridge would
             self.send_json(getattr(self.api, name[1])(*args))
         except Exception as err:
             self.send_json({"error": str(err)}, status=500)

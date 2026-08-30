@@ -34,8 +34,8 @@ def cut_clip(cfg, source, clip, dest, cues=None, audio_only=False, vertical=Fals
     try:
         chains, label = [], "0:v"
         if vertical:
-            # largest 9:16 region that fits, so sources already narrower than 9:16
-            # (square or portrait uploads) crop by height instead of overrunning width
+            # biggest 9:16 area that fits. a source narrower than 9:16 (square or
+            # portrait) crops by height, so the width is never larger than the frame
             crop = f"crop=w='trunc(min(iw,ih*{VERTICAL_W}/{VERTICAL_H})/2)*2':h='trunc(min(ih,iw*{VERTICAL_H}/{VERTICAL_W})/2)*2'"
             chains.append(f"[{label}]{crop},scale={VERTICAL_W}:{VERTICAL_H}[vc]")
             label = "vc"
