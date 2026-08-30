@@ -88,11 +88,14 @@ def diagnostics():
 
 
 def report_url():
+    # a long log in the query string overruns the browser url limit and fails to
+    # open, so keep the prefilled body short and point at the copy-details button
+    head = f"ReelPipe {version()} on {platform.system()} {platform.release()} ({platform.machine()})"
     body = (
         "What happened:\n\n\n"
         "What you expected:\n\n\n"
-        "--- diagnostics (auto-filled, edit or remove anything private) ---\n"
-        + diagnostics()
+        f"{head}\n"
+        "(in ReelPipe settings, click Copy details and paste the log here)\n"
     )
     query = urllib.parse.urlencode({"title": f"[report] ReelPipe {version()}", "body": body})
     return f"{ISSUES_URL}?{query}"

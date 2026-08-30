@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reelpipe"
-version = "0.2.7"
+version = "0.2.8"
 description = "cut reels out of long broadcasts using whisper + an llm"
 readme = "README.md"
 # otio has no 3.14 wheels yet, so cap it

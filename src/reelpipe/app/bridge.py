@@ -681,6 +681,24 @@ class Api:
         tool = copy_to_clipboard(str(text))
         return {"ok": bool(tool)} if tool else {"error": "no clipboard tool found"}
 
+    def paste_text(self):
+        """read the clipboard, for the paste-reply button when the webview blocks
+        navigator.clipboard. platform read tool, no window on windows."""
+        no_window = 0x08000000 if os.name == "nt" else 0
+        tools = {
+            "Darwin": ["pbpaste"],
+            "Windows": ["powershell", "-NoProfile", "-Command", "Get-Clipboard"],
+            "Linux": ["xclip", "-selection", "clipboard", "-o"],
+        }
+        cmd = tools.get(platform.system())
+        if not cmd or not shutil.which(cmd[0]):
+            return {"text": ""}
+        try:
+            out = subprocess.run(cmd, capture_output=True, text=True, timeout=5, creationflags=no_window)
+            return {"text": out.stdout.rstrip("\n")}
+        except (OSError, subprocess.SubprocessError):
+            return {"text": ""}
+
     def open_external(self, url):
         if str(url).startswith(("https://", "http://")):
             webbrowser.open(str(url))

@@ -56,7 +56,10 @@
   <!-- settings -->
   <section id="screen-settings" class="screen hidden">
     <div class="card narrow">
-      <div class="setup-name">Settings</div>
+      <div class="settings-head">
+        <div class="setup-name">Settings</div>
+        <button class="icon-btn" id="settings-close" title="Close">&times;</button>
+      </div>
       <div class="settings-group">
         <div class="block-label">Appearance</div>
         <label class="check"><input type="checkbox" id="set-dark"> Dark mode</label>
@@ -320,7 +323,8 @@
       <button class="btn ghost small" id="sub-close">Close</button>
     </div>
     <div id="sub-rows" class="sub-rows"></div>
-    <div class="ed-actions end">
+    <div class="ed-actions">
+      <span id="sub-saving" class="ed-dur hidden">Re-cutting the clip with the new captions&hellip;</span>
       <button class="btn primary" id="sub-save">Save</button>
     </div>
   </div>
@@ -330,7 +334,10 @@
 <div id="confirm" class="editor hidden">
   <div class="confirm-panel">
     <div id="confirm-text"></div>
-    <input id="confirm-challenge" class="hidden" autocomplete="off" spellcheck="false">
+    <div id="confirm-challenge-wrap" class="challenge-wrap hidden">
+      <label id="confirm-challenge-label" for="confirm-challenge"></label>
+      <input id="confirm-challenge" autocomplete="off" spellcheck="false" autocapitalize="off"></input>
+    </div>
     <div class="confirm-actions">
       <button class="btn ghost small" id="confirm-no">Cancel</button>
       <button class="btn small danger-solid" id="confirm-yes">Delete</button>

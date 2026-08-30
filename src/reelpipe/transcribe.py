@@ -7,8 +7,9 @@ import platform
 
 from .transcript import Segment, Transcript, Word
 
-# mlx wants an hf repo, faster-whisper wants a short name
-MLX_REPOS = {"tiny": "mlx-community/whisper-tiny", "base": "mlx-community/whisper-base", "small": "mlx-community/whisper-small", "medium": "mlx-community/whisper-medium", "large-v3": "mlx-community/whisper-large-v3", "large-v3-turbo": "mlx-community/whisper-large-v3-turbo"}
+# mlx wants an hf repo, faster-whisper wants a short name. the mlx-community repos
+# use a -mlx suffix for every size except large-v3-turbo, which has no suffix
+MLX_REPOS = {"tiny": "mlx-community/whisper-tiny-mlx", "base": "mlx-community/whisper-base-mlx", "small": "mlx-community/whisper-small-mlx", "medium": "mlx-community/whisper-medium-mlx", "large-v3": "mlx-community/whisper-large-v3-mlx", "large-v3-turbo": "mlx-community/whisper-large-v3-turbo"}
 
 
 class AsrError(RuntimeError):
@@ -56,7 +57,7 @@ def _mlx(model, audio_path, language, should_cancel=None):
     # in-flight progress or interrupt hook, so mid-transcription cancel isn't possible here
     if should_cancel and should_cancel():
         raise InterruptedError("cancelled")
-    repo = model if "/" in model else MLX_REPOS.get(model, f"mlx-community/whisper-{model}")
+    repo = model if "/" in model else MLX_REPOS.get(model, f"mlx-community/whisper-{model}-mlx")
     result = mlx_whisper.transcribe(str(audio_path), path_or_hf_repo=repo, word_timestamps=True, language=language, verbose=None)
     if should_cancel and should_cancel():
         raise InterruptedError("cancelled")

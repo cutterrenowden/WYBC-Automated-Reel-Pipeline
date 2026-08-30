@@ -410,3 +410,18 @@ def test_transcribe_progress_and_cancel(cfg, tmp_path):
     finally:
         faster_whisper.WhisperModel = orig
     assert seen and seen[0] == 0.2  # 2.0 / 10.0 reported after the first segment
+
+
+def test_report_url_stays_short(tmp_path):
+    from reelpipe.app import diagnostics
+    diagnostics.setup(tmp_path / "logs")
+    for _ in range(500):
+        diagnostics.log("a very long log line to prove the url does not include the whole log " * 3)
+    url = diagnostics.report_url()
+    assert url.startswith("https://github.com/")
+    assert len(url) < 2000, "prefilled issue url must stay under browser url limits"
+
+
+def test_paste_text_returns_dict(api):
+    out = api.paste_text()
+    assert isinstance(out, dict) and "text" in out

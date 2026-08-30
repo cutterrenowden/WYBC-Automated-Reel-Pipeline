@@ -167,7 +167,12 @@ function stopPolling() {
   if (poller) { clearTimeout(poller); poller = null; }
 }
 
+let lastScreen = "home";
+
 function show(name) {
+  // remember where settings was opened from, so its close button returns there
+  const current = [...document.querySelectorAll(".screen")].find((s) => !s.classList.contains("hidden"));
+  if (current && current.id !== "screen-settings") lastScreen = current.id.replace("screen-", "");
   for (const section of document.querySelectorAll(".screen")) {
     section.classList.toggle("hidden", section.id !== `screen-${name}`);
   }
@@ -339,7 +344,7 @@ async function resumeJob(ref) {
     renderResults();
     show("results");
   } else if (info.status === "responded" || info.status === "anchored") {
-    const stages = info.status === "anchored" ? ["cut", "handoff"] : ["anchor", "cut", "handoff"];
+    const stages = info.status === "anchored" ? ["cut"] : ["anchor", "cut"];
     const started = await call("finish_job", state.slug);
     if (started && started.error) { toast(started.error, true); return; }
     showRunning("Finishing " + info.slug, stages);
@@ -495,7 +500,7 @@ async function startJob() {
     return;
   }
   const stages = options.llm_mode === "api"
-    ? ["probe", "transcribe", "prompt", "select", "anchor", "cut", "handoff"]
+    ? ["probe", "transcribe", "prompt", "select", "anchor", "cut"]
     : ["probe", "transcribe", "prompt"];
   const started = await call("start", sources[0].path, options);
   if (!started) return;
@@ -596,7 +601,10 @@ function renderPaste(prefill) {
     `<div class="prompt-block" data-index="${index}">
       <div class="prompt-bar">
         <b>${many ? `Prompt ${index + 1} of ${state.prompts.length}` : "Prompt"}</b>
-        <button class="btn ghost small copy-prompt">Copy prompt</button>
+        <div class="prompt-bar-btns">
+          <button class="btn ghost small copy-prompt">Copy prompt</button>
+          <button class="btn ghost small paste-reply">Paste reply</button>
+        </div>
       </div>
       <textarea placeholder="paste the reply here"></textarea>
       <div class="parse-note"></div>
@@ -609,6 +617,14 @@ function renderPaste(prefill) {
       const result = await call("copy_text", state.prompts[index]);
       if (result && result.ok) toast("Prompt copied.");
       else toast((result && result.error) || "copy failed", true);
+    };
+    block.querySelector(".paste-reply").onclick = async () => {
+      let text = "";
+      try { text = await navigator.clipboard.readText(); } catch { /* fall back to python */ }
+      if (!text) { const r = await call("paste_text"); text = (r && r.text) || ""; }
+      if (!text) { toast("clipboard is empty", true); return; }
+      area.value = text;
+      validateResponse(block);
     };
     let debounce = null;
     area.addEventListener("input", () => {
@@ -647,7 +663,7 @@ async function applyResponses() {
   const started = await call("submit_responses", state.slug, texts);
   if (!started) return;
   if (started.error) { toast(started.error, true); return; }
-  showRunning("Cutting " + state.slug, ["anchor", "cut", "handoff"]);
+  showRunning("Cutting " + state.slug, ["anchor", "cut"]);
 }
 
 /* ---------- results ---------- */
@@ -779,11 +795,15 @@ function closeSubEditor() {
 async function saveSubtitles() {
   const texts = [...$("sub-rows").querySelectorAll("input")].map((el) => el.value);
   const button = $("sub-save");
+  const note = $("sub-saving");
   button.disabled = true;
-  button.textContent = "Saving…";
+  button.innerHTML = 'Saving<span class="dots"></span>';
+  // set_subtitles re-cuts the clip when captions are burned in, so warn it may be slow
+  if (note) note.classList.remove("hidden");
   const result = await call("set_subtitles", jobRef(), subedit.clip.index, texts);
   button.disabled = false;
   button.textContent = "Save";
+  if (note) note.classList.add("hidden");
   if (!result) return;
   if (result.error) { toast(result.error, true); return; }
   if (result.clip) {
@@ -806,11 +826,16 @@ function askConfirm(message, yesLabel = "Delete", challenge = null) {
   $("confirm-yes").textContent = yesLabel;
   const input = $("confirm-challenge");
   input.value = "";
-  input.classList.toggle("hidden", !challenge);
+  $("confirm-challenge-wrap").classList.toggle("hidden", !challenge);
   $("confirm-yes").disabled = !!challenge;
   if (challenge) {
-    input.placeholder = `type “${challenge}” to confirm`;
-    input.oninput = () => { $("confirm-yes").disabled = input.value.trim().toLowerCase() !== challenge; };
+    $("confirm-challenge-label").innerHTML = `To confirm, type <b>${esc(challenge)}</b> below`;
+    input.placeholder = challenge;
+    input.oninput = () => {
+      const match = input.value.trim().toLowerCase() === challenge;
+      $("confirm-yes").disabled = !match;
+      input.classList.toggle("matched", match);
+    };
   }
   $("confirm").classList.remove("hidden");
   if (challenge) input.focus();
@@ -1055,6 +1080,7 @@ function wireStatic() {
   $("uninstall").onclick = uninstallApp;
   $("update-check").onclick = () => checkUpdate(false);
   $("update-get").onclick = () => { if (updateUrl) call("open_external", updateUrl); };
+  $("settings-close").onclick = () => { lastScreen === "home" ? goHome() : show(lastScreen); };
   $("report-problem").onclick = () => call("report_problem");
   $("copy-diag").onclick = async () => { const r = await call("copy_diagnostics"); if (r && r.ok) toast("Details copied."); };
   $("open-log").onclick = () => call("open_log");

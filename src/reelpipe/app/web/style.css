@@ -262,7 +262,9 @@ input:focus, textarea:focus { outline: 2px solid rgba(44, 102, 242, 0.35); borde
 
 .run-sub { font-size: 13px; color: var(--muted); margin-bottom: 14px; overflow-wrap: anywhere; }
 
-/* one, two, three dots so a slow cancel still looks alive */
+/* one, two, three dots so a slow action still looks alive. fixed width so the
+   button doesn't change size as the dots come and go */
+.dots { display: inline-block; width: 1.4em; text-align: left; }
 .dots::after { content: ""; animation: dots 1.2s steps(1, end) infinite; }
 @keyframes dots {
   0%   { content: "."; }
@@ -334,8 +336,10 @@ input:focus, textarea:focus { outline: 2px solid rgba(44, 102, 242, 0.35); borde
   margin-bottom: 10px;
 }
 .prompt-block .prompt-bar b { font-size: 14px; }
+.prompt-bar-btns { display: flex; gap: 6px; }
 .prompt-block textarea {
-  height: 120px;
+  height: 140px;
+  min-height: 90px;
   resize: vertical;
   font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
@@ -621,6 +625,20 @@ input:focus, textarea:focus { outline: 2px solid rgba(44, 102, 242, 0.35); borde
 
 .len-panel { margin-top: 12px; }
 
+.settings-head { display: flex; align-items: center; justify-content: space-between; }
+.icon-btn {
+  font: inherit;
+  font-size: 22px;
+  line-height: 1;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+}
+.icon-btn:hover { color: var(--ink); border-color: var(--accent); }
+
 .settings-group { margin-top: 24px; }
 .update-row {
   display: flex;
@@ -646,7 +664,16 @@ input:focus, textarea:focus { outline: 2px solid rgba(44, 102, 242, 0.35); borde
 }
 .danger-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; max-width: 380px; }
 .btn.danger:hover { background: var(--danger); border-color: var(--danger); color: #fff; }
-#confirm-challenge { margin-top: 12px; }
+.challenge-wrap { margin-top: 16px; }
+#confirm-challenge-label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+#confirm-challenge-label b { color: var(--ink); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+#confirm-challenge {
+  width: 100%;
+  font: 14px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  padding: 9px 12px;
+  letter-spacing: 0.02em;
+}
+#confirm-challenge.matched { border-color: #2e9e5b; outline-color: rgba(46, 158, 91, 0.35); }
 
 /* ---- dark mode ---- */
 
