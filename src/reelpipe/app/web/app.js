@@ -1049,21 +1049,26 @@ async function checkUpdate(announce) {
 async function uninstallApp() {
   const info = await call("uninstall_info");
   if (!info) return;
-  if (!info.targets.length) {
+  if (!info.targets.length && !info.removes_app) {
     toast("Nothing to remove.");
     return;
   }
+  const what = info.removes_app
+    ? "Removes ReelPipe, its settings, and the downloaded whisper models"
+    : "Removes the downloaded whisper models and app settings";
+  const tail = info.removes_app ? " ReelPipe will close." : "";
   const sure = await askConfirm(
-    `Removes the downloaded whisper models and app settings (${fmtBytes(info.bytes)}). Job outputs are kept.`,
+    `${what} (${fmtBytes(info.bytes)}). Your exported clips are kept.${tail}`,
     "Uninstall", "uninstall");
   if (!sure) return;
   const result = await call("uninstall");
   if (!result) return;
   if (result.error) { toast(result.error, true); return; }
-  const followUp = result.frozen
-    ? "Removed. Drag ReelPipe.app to the Trash to finish."
-    : "Removed. Run pip uninstall reelpipe to finish.";
-  toast(followUp, false, 12000);
+  if (result.quitting) {
+    toast("Uninstalled. ReelPipe is closing.", false, 10000);
+  } else {
+    toast(result.frozen ? "Removed." : "Removed. Run pip uninstall reelpipe to finish.", false, 10000);
+  }
 }
 
 /* ---------- navigation ---------- */

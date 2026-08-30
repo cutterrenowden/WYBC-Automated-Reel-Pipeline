@@ -4,11 +4,16 @@
 # so expect a fat bundle. whisper models still download to ~/.cache on first run.
 
 import sys
+import tomllib
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_all, copy_metadata
 
 ROOT = Path(SPECPATH).parent
+
+# read the version so the .app info.plist shows it in finder's get info
+with open(ROOT / "pyproject.toml", "rb") as fh:
+    APP_VERSION = tomllib.load(fh)["project"]["version"]
 
 datas = [(str(ROOT / "src/reelpipe/app/web"), "reelpipe/app/web")]
 binaries = []
@@ -75,6 +80,8 @@ if sys.platform == "darwin":
         bundle_identifier="org.wybc.reelpipe",
         info_plist={
             "NSHighResolutionCapable": True,
+            "CFBundleShortVersionString": APP_VERSION,
+            "CFBundleVersion": APP_VERSION,
             # the ui and clip previews come off a loopback http server
             "NSAppTransportSecurity": {"NSAllowsLocalNetworking": True},
         },

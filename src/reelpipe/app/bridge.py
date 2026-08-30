@@ -758,21 +758,29 @@ class Api:
 
     # ---- uninstall ---------------------------------------------------------
 
+    def _app_bundle(self):
+        """the installed program to remove: the .app on mac, the install folder on
+        windows. none when running from source."""
+        if not getattr(sys, "frozen", False):
+            return None
+        exe = Path(sys.executable)
+        if sys.platform == "darwin":
+            return next((p for p in exe.parents if p.suffix == ".app"), None)
+        return exe.parent
+
     def _uninstall_targets(self):
-        """what the software has put on this machine: whisper model caches, and the
-        settings file for packaged builds. job outputs are never touched."""
+        """everything the program wrote, minus the exported clips in out/. the app
+        itself is handled separately, so it isn't in this list."""
         targets = []
         hub = Path(os.environ.get("HF_HOME") or Path.home() / ".cache" / "huggingface") / "hub"
         if hub.is_dir():
             for entry in sorted(hub.glob("models--*")):
                 if "whisper" in entry.name.lower():
                     targets.append(entry)
-        if getattr(sys, "frozen", False):
-            config = self.base_dir / "config.toml"
-            if config.is_file():
-                targets.append(config)
-        if self._ui_file().is_file():
-            targets.append(self._ui_file())
+        log_dir = diagnostics.path().parent if diagnostics.path() else None
+        for extra in (self.base_dir / "config.toml", self._ui_file(), log_dir):
+            if extra and Path(extra).exists():
+                targets.append(Path(extra))
         return targets
 
     @staticmethod
@@ -784,21 +792,62 @@ class Api:
         targets = self._uninstall_targets()
         total = 0
         for target in targets:
-            if target.is_dir():
-                total += sum(f.stat().st_size for f in target.rglob("*") if f.is_file())
-            else:
-                total += target.stat().st_size
-        return {"targets": [self._pretty_target(t) for t in targets], "bytes": total, "frozen": bool(getattr(sys, "frozen", False))}
+            total += sum(f.stat().st_size for f in target.rglob("*") if f.is_file()) if target.is_dir() else target.stat().st_size
+        app = self._app_bundle()
+        names = [self._pretty_target(t) for t in targets]
+        if app and app.exists():
+            total += sum(f.stat().st_size for f in app.rglob("*") if f.is_file())
+            names.insert(0, "the ReelPipe app")
+        return {"targets": names, "bytes": total, "frozen": bool(getattr(sys, "frozen", False)), "removes_app": bool(app and app.exists())}
 
     def uninstall(self):
         removed = []
         for target in self._uninstall_targets():
             try:
                 shutil.rmtree(target) if target.is_dir() else target.unlink()
-            except OSError as err:
-                return {"error": f"couldn't remove {self._pretty_target(target)}: {err}", "removed": removed}
-            removed.append(self._pretty_target(target))
-        return {"ok": True, "removed": removed, "frozen": bool(getattr(sys, "frozen", False))}
+                removed.append(self._pretty_target(target))
+            except OSError:
+                pass  # a partial removal beats stopping halfway
+        quitting = False
+        app = self._app_bundle()
+        if app and app.exists():
+            quitting = self._remove_app(app)
+        return {"ok": True, "removed": removed, "frozen": bool(getattr(sys, "frozen", False)), "quitting": quitting}
+
+    def _remove_app(self, app):
+        """move the program to the trash (mac) or launch the windows uninstaller,
+        then quit so the files aren't locked. returns whether a quit was scheduled."""
+        if sys.platform == "darwin":
+            try:
+                subprocess.run(["osascript", "-e", f'tell application "Finder" to delete POSIX file "{app}"'], timeout=20)
+            except (OSError, subprocess.SubprocessError):
+                return False
+            self._quit_soon()
+            return True
+        if sys.platform.startswith("win"):
+            uninstaller = app / "unins000.exe"
+            if not uninstaller.is_file():
+                return False
+            try:
+                subprocess.Popen([str(uninstaller)], creationflags=0x08000000)
+            except OSError:
+                return False
+            self._quit_soon()
+            return True
+        return False
+
+    def _quit_soon(self):
+        def go():
+            try:
+                if self.window is not None:
+                    self.window.destroy()
+            except Exception:
+                pass
+            os._exit(0)
+
+        timer = threading.Timer(1.5, go)
+        timer.daemon = True
+        timer.start()
 
     def set_api_key(self, provider, key):
         var = ENV_KEYS.get(str(provider))

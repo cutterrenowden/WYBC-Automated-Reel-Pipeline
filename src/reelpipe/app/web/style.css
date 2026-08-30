@@ -40,6 +40,11 @@ body {
   width: 100vw;
   height: 100vh;
   z-index: -1;
+  /* keep the fixed background on its own gpu layer so scrolling the clips page
+     doesn't repaint hundreds of polygons every frame */
+  transform: translateZ(0);
+  will-change: transform;
+  pointer-events: none;
 }
 
 header {

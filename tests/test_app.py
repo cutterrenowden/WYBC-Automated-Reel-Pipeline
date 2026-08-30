@@ -185,14 +185,15 @@ def test_uninstall_removes_only_whisper_caches(api, tmp_path, monkeypatch):
     monkeypatch.setenv("HF_HOME", str(tmp_path / "hfcache"))
 
     info = api.uninstall_info()
-    assert info["targets"] == ["mlx-community/whisper-tiny"]
+    assert "mlx-community/whisper-tiny" in info["targets"]
     assert info["bytes"] >= 100
 
     result = api.uninstall()
-    assert result["ok"] and result["removed"] == ["mlx-community/whisper-tiny"]
+    assert result["ok"] and "mlx-community/whisper-tiny" in result["removed"]
     assert not whisper_model.exists()
+    # a non-whisper model in the same cache is left alone
     assert (hub / "models--someone--bert").exists()
-    assert api.uninstall_info()["targets"] == []
+    assert not any("whisper" in t for t in api.uninstall_info()["targets"])
 
 
 def test_ui_prefs_roundtrip_and_uninstall_includes_them(api, tmp_path, monkeypatch):
