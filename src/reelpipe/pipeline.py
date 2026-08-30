@@ -54,12 +54,12 @@ def ingest(cfg, source, slug=None):
     return job
 
 
-def transcribe(cfg, job):
+def transcribe(cfg, job, progress=None, should_cancel=None):
     info = job.read_meta()["media"]
     media.extract_audio(cfg, job.source, job.audio)
     backend = asr.pick_backend(cfg.asr.backend)
     log(f"transcribing with {backend} / {cfg.asr.model}, this is the slow part")
-    result = asr.transcribe(cfg, job.audio, info["duration"])
+    result = asr.transcribe(cfg, job.audio, info["duration"], progress=progress, should_cancel=should_cancel)
     result.source = str(job.source)
     result.save(job.transcript_json)
     write_srt(result.segments, job.transcript_srt)

@@ -122,14 +122,49 @@ function api() {
   return bridge && typeof bridge.boot === "function" ? bridge : null;
 }
 
+const AUTH_TOKEN = new URLSearchParams(location.search).get("t") || "";
+
+async function httpCall(name, args) {
+  // the custom header is what makes this uforgeable cross-origin; the token proves same-app
+  const reply = await fetch(`/api/${name}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Reelpipe": AUTH_TOKEN },
+    body: JSON.stringify({ args }),
+  });
+  if (!reply.ok) throw new Error(`backend replied ${reply.status}`);
+  return reply.json();
+}
+
 async function call(name, ...args) {
-  if (!api()) { toast("still connecting to the app backend…", true); return null; }
   try {
-    return await api()[name](...args);
+    // the js bridge when it works; plain http to the same backend when it doesn't
+    if (api()) return await api()[name](...args);
+    return await httpCall(name, args);
   } catch (err) {
     toast(String(err && err.message || err), true);
     return null;
   }
+}
+
+/* progress events arrive by bridge push, or by polling when the bridge is out */
+let lastSeq = 0;
+let poller = null;
+
+function startPolling() {
+  if (poller) return;
+  const tick = async () => {
+    try {
+      const reply = await fetch(`/api/events?after=${lastSeq}`, { headers: { "X-Reelpipe": AUTH_TOKEN } });
+      if (reply.ok) for (const event of (await reply.json()).events) reelApp.onEvent(event);
+    } catch { /* transient, next tick retries */ }
+    // self-rescheduling so a slow poll can't stack requests
+    if (poller) poller = setTimeout(tick, 700);
+  };
+  poller = setTimeout(tick, 700);
+}
+
+function stopPolling() {
+  if (poller) { clearTimeout(poller); poller = null; }
 }
 
 function show(name) {
@@ -175,14 +210,27 @@ function segmented(el, value, onchange) {
 /* ---------- events from python ---------- */
 
 window.reelApp = {
-  onNativeDrop(path) {
-    chooseSource(path);
+  onNativeDrop(paths) {
+    chooseSources(Array.isArray(paths) ? paths : [paths]);
   },
   onEvent(event) {
+    if (event.seq) {
+      if (event.seq <= lastSeq) return; // bridge push and poller can overlap
+      lastSeq = event.seq;
+    }
     switch (event.type) {
       case "log": appendLog(event.line); break;
       case "stage": setStage(event.stage, event.state); break;
+      case "progress": setProgress(event.frac); break;
       case "job": state.slug = event.ref || event.slug; break;
+      case "ready": break; // batch job transcribed; it shows up in the jobs list
+      case "batch_start": showBatch(event.total); break;
+      case "batch_item": setBatchItem(event.index, event.total, event.name); break;
+      case "batch_done":
+        stopTimer();
+        toast(`${event.done} of ${event.total} transcribed. Open each from Previous jobs.`, false, 6000);
+        goHome();
+        break;
       case "awaiting":
         stopTimer();
         state.slug = event.ref || event.slug;
@@ -217,10 +265,16 @@ window.reelApp = {
 
 let booted = false;
 async function init() {
-  if (booted || !api()) return;
+  if (booted) return;
   booted = true;
-  const boot = await call("boot");
-  if (!boot) { booted = false; return; }
+  let boot = null;
+  for (let attempt = 0; attempt < 5 && !boot; attempt++) {
+    boot = await call("boot");
+    if (!boot) await new Promise((r) => setTimeout(r, 500));
+  }
+  if (!boot) { booted = false; return; } // exhausted retries; a later trigger can retry
+  // start the poll cursor past existing history so a reload never replays old events
+  lastSeq = Math.max(lastSeq, boot.seq || 0);
   state.models = boot.models;
   state.defaults = boot.defaults;
   state.envKeys = boot.env_keys;
@@ -319,23 +373,35 @@ function ffmpegGate() {
 async function browse() {
   if (!ffmpegGate()) return;
   const info = await call("pick_source");
-  if (info) acceptSource(info);
+  if (info) acceptSources([info.path]);
 }
 
-async function chooseSource(path) {
+async function chooseSources(paths) {
   if (!ffmpegGate()) return;
-  const info = await call("inspect", path);
-  if (info) acceptSource(info);
+  await acceptSources(paths);
 }
 
-function acceptSource(info) {
-  if (info.error) { toast(info.error, true); return; }
-  state.source = info;
-  $("setup-name").textContent = info.name;
-  const bits = [fmtClock(info.duration) + " long"];
-  if (info.has_video && info.width) bits.push(`${info.width}×${info.height} @ ${Number(info.fps).toFixed(2).replace(/\.?0+$/, "")} fps`);
-  if (!info.has_video) bits.push("audio only");
-  $("setup-meta").textContent = bits.join(" · ");
+async function acceptSources(paths) {
+  const infos = [];
+  for (const path of paths) {
+    const info = await call("inspect", path);
+    if (!info) return;
+    if (info.error) { toast(info.error, true); return; }
+    infos.push(info);
+  }
+  if (!infos.length) return;
+  state.sources = infos;
+  if (infos.length === 1) {
+    const info = infos[0];
+    $("setup-name").textContent = info.name;
+    const bits = [fmtClock(info.duration) + " long"];
+    if (info.has_video && info.width) bits.push(`${info.width}×${info.height} @ ${Number(info.fps).toFixed(2).replace(/\.?0+$/, "")} fps`);
+    if (!info.has_video) bits.push("audio only");
+    $("setup-meta").textContent = bits.join(" · ");
+  } else {
+    $("setup-name").textContent = `${infos.length} files`;
+    $("setup-meta").textContent = infos.map((i) => i.name).join(", ");
+  }
   show("setup");
 }
 
@@ -377,8 +443,9 @@ function buildSetupForm() {
     $("len-auto").classList.toggle("hidden", mode !== "auto");
     $("len-range").classList.toggle("hidden", mode !== "range");
   };
-  segmented($("opt-lenmode"), "auto", lengthPanels);
-  lengthPanels("auto");
+  const lenMode = d.length_mode === "range" ? "range" : "auto";
+  segmented($("opt-lenmode"), lenMode, lengthPanels);
+  lengthPanels(lenMode);
 
   $("opt-leadin").value = d.clips_lead_in;
   $("opt-leadout").value = d.clips_lead_out;
@@ -408,6 +475,7 @@ function collectOptions() {
     render_vertical: $("opt-format").dataset.value === "vertical",
     llm_mode: $("opt-llm").dataset.value,
     llm_provider: $("opt-provider").dataset.value,
+    length_mode: $("opt-lenmode").dataset.value,
   };
 }
 
@@ -417,34 +485,64 @@ async function startJob() {
     const key = $("opt-key").value.trim();
     if (key) await call("set_api_key", options.llm_provider, key);
   }
+  state.options = options;
+  const sources = state.sources || [];
+  if (sources.length > 1) {
+    const started = await call("start_batch", sources.map((s) => s.path), options);
+    if (!started) return;
+    if (started.error) { toast(started.error, true); return; }
+    showBatch(sources.length);
+    return;
+  }
   const stages = options.llm_mode === "api"
     ? ["probe", "transcribe", "prompt", "select", "anchor", "cut", "handoff"]
     : ["probe", "transcribe", "prompt"];
-  const started = await call("start", state.source.path, options);
+  const started = await call("start", sources[0].path, options);
   if (!started) return;
   if (started.error) { toast(started.error, true); return; }
-  state.options = options;
-  showRunning("Cutting " + state.source.name, stages);
+  showRunning("Cutting " + sources[0].name, stages);
 }
 
 /* ---------- running ---------- */
 
-function showRunning(title, stages) {
+function showRunning(title, stages, sub) {
   state.runStages = stages;
   $("run-title").textContent = title;
+  $("run-sub").textContent = sub || "";
+  $("run-sub").classList.toggle("hidden", !sub);
   $("stages").innerHTML = stages.map((s) =>
     `<li data-stage="${s}"><span class="dot"></span>${STAGE_LABELS[s] || s}</li>`).join("");
+  setProgress(null);
   $("logbox").textContent = "";
   const cancelBtn = $("cancel");
-  cancelBtn.textContent = "Cancel after this stage";
+  cancelBtn.textContent = "Cancel";
   cancelBtn.disabled = false;
   cancelBtn.onclick = async () => {
     await call("cancel");
-    cancelBtn.textContent = "Cancelling after this stage…";
+    cancelBtn.textContent = "Cancelling…";
     cancelBtn.disabled = true;
   };
   startTimer();
   show("running");
+}
+
+function showBatch(total) {
+  showRunning("Batch", ["probe", "transcribe", "prompt"], `Preparing ${total} files`);
+}
+
+function setBatchItem(index, total, name) {
+  $("run-title").textContent = `File ${index} of ${total}`;
+  $("run-sub").textContent = name;
+  $("run-sub").classList.remove("hidden");
+  for (const li of document.querySelectorAll("#stages li")) li.classList.remove("running", "done", "error");
+  setProgress(null);
+}
+
+function setProgress(frac) {
+  const bar = $("progress");
+  if (frac === null || frac === undefined) { bar.classList.add("hidden"); return; }
+  bar.classList.remove("hidden");
+  $("progress-bar").style.width = `${Math.round(Math.max(0, Math.min(1, frac)) * 100)}%`;
 }
 
 function setStage(stage, stageState) {
@@ -452,6 +550,10 @@ function setStage(stage, stageState) {
   if (!li) return;
   li.classList.remove("running", "done", "error");
   li.classList.add(stageState);
+  // the progress bar belongs to transcription; clear it as soon as we leave that stage
+  if (stage === "transcribe" && stageState === "running") setProgress(0);
+  else if (stage === "transcribe") setProgress(null);
+  else if (stageState === "running") setProgress(null);
 }
 
 function markActiveStageFailed() {
@@ -953,6 +1055,9 @@ function wireStatic() {
   $("uninstall").onclick = uninstallApp;
   $("update-check").onclick = () => checkUpdate(false);
   $("update-get").onclick = () => { if (updateUrl) call("open_external", updateUrl); };
+  $("report-problem").onclick = () => call("report_problem");
+  $("copy-diag").onclick = async () => { const r = await call("copy_diagnostics"); if (r && r.ok) toast("Details copied."); };
+  $("open-log").onclick = () => call("open_log");
   for (const tab of document.querySelectorAll(".nav button")) {
     tab.onclick = () => tab.dataset.nav === "settings" ? show("settings") : goHome();
   }
@@ -986,6 +1091,12 @@ drawPoly();
 wireStatic();
 window.addEventListener("pywebviewready", init);
 const readyPoll = setInterval(() => {
-  if (api()) { clearInterval(readyPoll); init(); }
+  // if the bridge lands (even late), prefer it and drop the http poller
+  if (api()) { clearInterval(readyPoll); stopPolling(); if (!booted) init(); }
 }, 120);
-setTimeout(() => clearInterval(readyPoll), 15000);
+// windows sometimes never injects the js bridge; fall back to http and keep working
+setTimeout(() => {
+  if (!api()) { startPolling(); init(); }
+}, 3500);
+// stop trying for the bridge after a while so readyPoll can't leak for the session
+setTimeout(() => clearInterval(readyPoll), 30000);

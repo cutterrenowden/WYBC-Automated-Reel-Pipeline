@@ -35,7 +35,7 @@ def probe_duration(path):
 def api(tmp_path, transcript, monkeypatch):
     (tmp_path / "config.toml").write_text("[clips]\nmin_seconds = 4.0\nmax_seconds = 20.0\nlead_in = 0.5\nlead_out = 0.5\n\n[render]\npreset = \"ultrafast\"\n", encoding="utf-8")
 
-    def fake_transcribe(cfg, job):
+    def fake_transcribe(cfg, job, **kwargs):
         transcript.source = str(job.source)
         transcript.save(job.transcript_json)
         job.write_meta({"asr": {"backend": "stub", "model": "stub", "language": "en"}, "words": len(transcript.words())})
@@ -273,3 +273,140 @@ def test_burn_captions_after_the_fact(api, tmp_path):
     clip1 = burned["clips"][0]
     assert api.update_clip(slug, 1, clip1["start"], clip1["start"] + 6.0).get("ok")
     assert "HE RISES FROM DEEP" in srt.read_text(encoding="utf-8"), "edits live in the transcript, so recuts keep them"
+
+
+def test_http_fallback_api(api, tmp_path):
+    import json as jsonlib
+
+    web = tmp_path / "web"
+    web.mkdir()
+    (web / "index.html").write_text("hi", encoding="utf-8")
+    token = "s3cret-token"
+    httpd, port = server.start(web, tmp_path / "out", api, token)
+    try:
+        def post(name, args=None, headers=None, raw=None):
+            conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+            hdr = {"Content-Type": "application/json", "X-Reelpipe": token}
+            if headers is not None:
+                hdr = headers
+            conn.request("POST", f"/api/{name}", body=raw if raw is not None else jsonlib.dumps({"args": args or []}), headers=hdr)
+            reply = conn.getresponse()
+            status, data = reply.status, reply.read()
+            conn.close()
+            return status, (jsonlib.loads(data) if status == 200 else None)
+
+        # auth: the custom-header token gates every call
+        assert post("boot", headers={"Content-Type": "application/json"})[0] == 403
+        assert post("boot", headers={"Content-Type": "application/json", "X-Reelpipe": "wrong"})[0] == 403
+
+        status, boot = post("boot")
+        assert status == 200 and "doctor" in boot
+        assert post("_config")[0] == 404, "private methods stay unreachable"
+        assert post("no_such_method")[0] == 404
+
+        # a returned {"error": ...} is 200, a raised exception is 5xx (so the ui rejects it)
+        status, body = post("resume", ["nope-does-not-exist"])
+        assert status == 500
+
+        # malformed input degrades cleanly, no crash
+        assert post("boot", raw="{ not json")[0] == 400
+
+        def get_events(after, tok=token):
+            conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+            conn.request("GET", f"/api/events?after={after}", headers={"X-Reelpipe": tok})
+            reply = conn.getresponse()
+            data = reply.read()
+            conn.close()
+            return reply.status, data
+
+        assert get_events(0, tok="wrong")[0] == 403
+        api._emit("log", line="hello over http")
+        status, raw = get_events(0)
+        assert status == 200
+        evs = jsonlib.loads(raw)["events"]
+        assert any(e.get("line") == "hello over http" for e in evs)
+        cursor = max(e["seq"] for e in evs)
+        assert jsonlib.loads(get_events(cursor)[1])["events"] == []
+    finally:
+        httpd.shutdown()
+
+
+def test_preferences_persist_across_boot(api, tmp_path):
+    opts = {"llm_mode": "manual", "clips_count": 5, "clips_target_seconds": 45,
+            "prompt_profile": "generic", "length_mode": "auto", "render_vertical": True}
+    api._save_prefs(opts)
+    defaults = api.boot()["defaults"]
+    assert defaults["clips_count"] == 5
+    assert defaults["clips_target_seconds"] == 45
+    assert defaults["prompt_profile"] == "generic"
+    assert defaults["length_mode"] == "auto"
+    assert defaults["render_vertical"] is True
+
+
+def test_batch_transcribes_each_file(api, tmp_path):
+    a = make_video(tmp_path / "one.mp4")
+    b = make_audio(tmp_path / "two.wav")
+    assert api.start_batch([str(a), str(b)], {"llm_mode": "manual", "clips_count": 2}) == {"ok": True}
+    wait(api)
+    assert [e["type"] for e in api.event_log].count("ready") == 2
+    done = events(api, "batch_done")
+    assert done and done[0]["done"] == 2
+    slugs = {j["slug"] for j in api.list_jobs()}
+    assert {"one", "two"} <= slugs
+
+
+def test_vertical_handles_narrow_source(tmp_path):
+    from reelpipe.anchor import Clip
+    from reelpipe.config import Config
+    from reelpipe.cut import cut_clip
+
+    src = tmp_path / "portrait.mp4"
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-i", "testsrc=size=400x1000:rate=30:duration=3", "-f", "lavfi", "-i", "sine=frequency=300:duration=3", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", str(src)], check=True)
+    cfg = Config()
+    cfg.render.preset = "ultrafast"
+    dest = tmp_path / "v.mp4"
+    cut_clip(cfg, src, Clip(1, "t", 0.0, 2.0), dest, vertical=True, frame=(400, 1000))
+    out = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=s=x:p=0", str(dest)], capture_output=True, text=True, check=True)
+    assert out.stdout.strip() == "1080x1920"
+
+
+def test_transcribe_progress_and_cancel(cfg, tmp_path):
+    from reelpipe import transcribe as asr
+    from reelpipe.transcript import Segment, Word
+
+    class Seg:
+        def __init__(self, s, e, text):
+            self.start, self.end, self.text = s, e, text
+            self.words = []  # progress/cancel don't depend on word extraction
+
+    class Info:
+        duration = 10.0
+        language = "en"
+
+    fake = [Seg(0, 2, "a"), Seg(2, 4, "b"), Seg(4, 6, "c")]
+
+    class Model:
+        def __init__(self, *a, **k):
+            pass
+
+        def transcribe(self, *a, **k):
+            return iter(fake), Info()
+
+    import faster_whisper
+    seen = []
+    # cancel after the second segment
+    state = {"n": 0}
+
+    def should_cancel():
+        state["n"] += 1
+        return state["n"] > 2
+
+    import pytest as _pytest
+    orig = faster_whisper.WhisperModel
+    faster_whisper.WhisperModel = Model
+    try:
+        with _pytest.raises(InterruptedError):
+            asr._faster_whisper(cfg, tmp_path / "a.wav", "en", duration=10.0, progress=seen.append, should_cancel=should_cancel)
+    finally:
+        faster_whisper.WhisperModel = orig
+    assert seen and seen[0] == 0.2  # 2.0 / 10.0 reported after the first segment

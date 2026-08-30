@@ -260,6 +260,10 @@ input:focus, textarea:focus { outline: 2px solid rgba(44, 102, 242, 0.35); borde
 .running-title { font-size: 18px; font-weight: 650; }
 .elapsed { font-variant-numeric: tabular-nums; color: var(--muted); }
 
+.run-sub { font-size: 13px; color: var(--muted); margin-bottom: 14px; overflow-wrap: anywhere; }
+.progress { height: 6px; background: var(--bar-bg); margin: 0 0 16px; }
+#progress-bar { height: 100%; width: 0; background: var(--accent); transition: width 0.3s ease; }
+
 .stages { list-style: none; margin-bottom: 18px; }
 .stages li {
   display: flex;

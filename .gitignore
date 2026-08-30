@@ -11,6 +11,7 @@ out/
 config.toml
 .env
 .reelpipe-ui.json
+logs/
 
 # release bundles live on the releases page, never in history
 *.zip

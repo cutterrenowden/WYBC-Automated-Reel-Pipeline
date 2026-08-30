@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 import sys
 from pathlib import Path
 
-from . import bridge, server
+from . import bridge, diagnostics, server
 
 # finder/explorer launches don't inherit a shell path, so ffmpeg hides
 EXTRA_PATH = {
@@ -59,12 +60,17 @@ def main():
     import webview
 
     extend_path()
-    api = bridge.Api(base_dir())
+    home = base_dir()
+    diagnostics.setup(home / "logs")
+    api = bridge.Api(home)
     api.out_dir.mkdir(parents=True, exist_ok=True)
-    _, port = server.start(web_root(), api.out_dir)
+    # a per-launch secret the ui echoes back on every /api call; a cross-site page
+    # can neither read it nor forge the custom header cross-origin
+    token = secrets.token_urlsafe(24)
+    _, port = server.start(web_root(), api.out_dir, api, token)
     window = webview.create_window(
         "ReelPipe",
-        f"http://127.0.0.1:{port}/app/",
+        f"http://127.0.0.1:{port}/app/?t={token}",
         js_api=api,
         width=1160,
         height=800,
@@ -78,11 +84,9 @@ def main():
         # captures them for handlers registered through its own dom api
         def on_drop(event):
             files = (event.get("dataTransfer") or {}).get("files") or []
-            for dropped in files:
-                path = dropped.get("pywebviewFullPath")
-                if path:
-                    window.evaluate_js(f"reelApp.onNativeDrop({json.dumps(path)})")
-                    return
+            paths = [d.get("pywebviewFullPath") for d in files if d.get("pywebviewFullPath")]
+            if paths:
+                window.evaluate_js(f"reelApp.onNativeDrop({json.dumps(paths)})")
 
         try:
             window.dom.get_element("#dropzone").events.drop += on_drop

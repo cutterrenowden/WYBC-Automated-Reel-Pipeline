@@ -21,6 +21,14 @@ from ..cli import copy_to_clipboard
 from ..paths import Job
 from ..transcribe import backend_report
 from ..transcript import Transcript, Word, write_srt, write_txt
+from . import diagnostics
+
+
+def _log_event(event):
+    try:
+        diagnostics.log_event(event)
+    except Exception:
+        pass
 
 ASR_MODELS = ["tiny", "base", "small", "medium", "large-v3", "large-v3-turbo"]
 ENV_KEYS = {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY"}
@@ -35,9 +43,31 @@ class Api:
         self.base_dir = Path(base_dir)
         self.window = None
         self.event_log = []
+        self._seq = 0
+        self._emit_lock = threading.Lock()
         self._thread = None
         self._cancel = threading.Event()
+        self._queue = []
         pipeline.set_log_listener(lambda line: self._emit("log", line=line))
+
+    _public = None
+
+    @classmethod
+    def public_methods(cls):
+        """the http fallback exposes exactly the non-underscore bridge methods, so a
+        new method is reachable on windows by construction, never a two-place edit.
+        built from the class (not the instance) so properties like out_dir aren't fired."""
+        if cls._public is None:
+            import inspect
+
+            names = set()
+            for name in dir(cls):
+                if name.startswith("_") or name == "public_methods":
+                    continue
+                if inspect.isfunction(inspect.getattr_static(cls, name, None)):
+                    names.add(name)
+            cls._public = frozenset(names)
+        return cls._public
 
     # ---- plumbing ----------------------------------------------------------
 
@@ -64,11 +94,19 @@ class Api:
         return self._config(options), job
 
     def _emit(self, kind, **payload):
-        event = {"type": kind, **payload}
-        self.event_log.append(event)
-        del self.event_log[:-400]
+        with self._emit_lock:
+            self._seq += 1
+            event = {"type": kind, "seq": self._seq, **payload}
+            self.event_log.append(event)
+            del self.event_log[:-400]
+        _log_event(event)
         if self.window is not None:
-            self.window.evaluate_js(f"reelApp.onEvent({json.dumps(event)})")
+            try:
+                self.window.evaluate_js(f"reelApp.onEvent({json.dumps(event)})")
+            except Exception:
+                # the poller is the reliable channel on a degraded webview; a failed
+                # push must never sink the worker thread mid-stage
+                pass
 
     def _busy(self):
         return self._thread is not None and self._thread.is_alive()
@@ -123,8 +161,12 @@ class Api:
             "llm_provider": cfg.llm.provider,
             "llm_model": cfg.llm.model,
         }
+        # last-used choices win over config defaults, when they're still valid
+        for key, value in (self._ui().get("prefs") or {}).items():
+            if key in defaults or key == "length_mode":
+                defaults[key] = value
         keys = {name: bool(os.environ.get(var)) for name, var in ENV_KEYS.items()}
-        return {"doctor": doctor, "defaults": defaults, "models": ASR_MODELS, "env_keys": keys, "jobs": self.list_jobs(), "out_dir": str(self.out_dir), "busy": self._busy(), "platform": platform.system(), "video_exts": VIDEO_EXTS, "audio_exts": AUDIO_EXTS, "ui": self._ui()}
+        return {"doctor": doctor, "defaults": defaults, "models": ASR_MODELS, "env_keys": keys, "jobs": self.list_jobs(), "out_dir": str(self.out_dir), "busy": self._busy(), "platform": platform.system(), "video_exts": VIDEO_EXTS, "audio_exts": AUDIO_EXTS, "ui": self._ui(), "seq": self._seq}
 
     # ---- ui prefs (the app's port changes per launch, so browser storage won't do) --
 
@@ -137,10 +179,42 @@ class Api:
         except (OSError, ValueError):
             return {}
 
+    UI_KEYS = {"dark"}
+    # the last-used setup choices, so the form opens where you left it
+    PREF_KEYS = {"asr_model", "asr_language", "clips_count", "clips_target_seconds",
+                 "clips_min_seconds", "clips_max_seconds", "prompt_profile",
+                 "render_burn_subs", "render_vertical", "energy_enabled",
+                 "llm_mode", "llm_provider", "length_mode"}
+
     def set_ui(self, prefs):
         ui = self._ui()
-        ui.update({key: value for key, value in dict(prefs or {}).items() if key in {"dark"}})
+        ui.update({key: value for key, value in dict(prefs or {}).items() if key in self.UI_KEYS})
         self._ui_file().write_text(json.dumps(ui) + "\n", encoding="utf-8")
+        return {"ok": True}
+
+    def _save_prefs(self, options):
+        ui = self._ui()
+        ui["prefs"] = {key: options[key] for key in self.PREF_KEYS if key in options}
+        try:
+            self._ui_file().write_text(json.dumps(ui) + "\n", encoding="utf-8")
+        except OSError:
+            pass
+
+    # ---- crash reporting ---------------------------------------------------
+
+    def report_problem(self):
+        webbrowser.open(diagnostics.report_url())
+        return {"ok": True}
+
+    def copy_diagnostics(self):
+        tool = copy_to_clipboard(diagnostics.diagnostics())
+        return {"ok": bool(tool)} if tool else {"error": "no clipboard tool found"}
+
+    def open_log(self):
+        log = diagnostics.path()
+        if not log or not log.is_file():
+            return {"error": "no log yet"}
+        self._reveal(log, select=True)
         return {"ok": True}
 
     def list_jobs(self):
@@ -203,33 +277,91 @@ class Api:
 
     # ---- the run -----------------------------------------------------------
 
-    def start(self, source, options):
-        options = dict(options or {})
+    def _transcribe(self, cfg, job):
+        def progress(frac):
+            self._emit("progress", stage="transcribe", frac=max(0.0, min(1.0, frac)))
+
+        pipeline.transcribe(cfg, job, progress=progress, should_cancel=self._cancel.is_set)
+
+    def _prep_one(self, cfg, source, options, batch=False):
+        """probe, transcribe, prompt. in api mode carry through to finished clips;
+        in manual mode stop at the prompt (awaiting for a single job, ready for a batch)."""
+        job = self._stage("probe", pipeline.ingest, cfg, source, options.get("slug") or None)
+        job.write_meta({"app": options})
+        self._emit("job", slug=job.slug, ref=str(job.root))
+        self._stage("transcribe", self._transcribe, cfg, job)
+        paths = self._stage("prompt", pipeline.build_prompt, cfg, job)
+        if cfg.llm.mode == "api":
+            self._stage("select", pipeline.select_api, cfg, job)
+            self._finish(cfg, job)
+        elif batch:
+            self._emit("ready", slug=job.slug, ref=str(job.root))
+        else:
+            self._emit("awaiting", slug=job.slug, ref=str(job.root), prompts=[p.read_text(encoding="utf-8") for p in paths])
+        return job
+
+    def _check_api_key(self, options):
         if options.get("llm_mode") == "api":
             provider = options.get("llm_provider") or "anthropic"
             if not os.environ.get(ENV_KEYS.get(provider, "")):
-                return {"error": f"no {ENV_KEYS[provider]} set. add a key or switch to paste mode"}
+                return f"no {ENV_KEYS[provider]} set. add a key or switch to paste mode"
+        return None
+
+    def start(self, source, options):
+        options = dict(options or {})
+        problem = self._check_api_key(options)
+        if problem:
+            return {"error": problem}
         cfg = self._config(options)
         try:
             media.find_tool("ffmpeg", cfg.paths.ffmpeg)
         except media.MediaError as err:
             return {"error": str(err)}
+        self._save_prefs(options)
 
         def work():
             job = None
             try:
-                job = self._stage("probe", pipeline.ingest, cfg, source, options.get("slug") or None)
-                job.write_meta({"app": options})
-                self._emit("job", slug=job.slug, ref=str(job.root))
-                self._stage("transcribe", pipeline.transcribe, cfg, job)
-                paths = self._stage("prompt", pipeline.build_prompt, cfg, job)
-                if cfg.llm.mode == "api":
-                    self._stage("select", pipeline.select_api, cfg, job)
-                    self._finish(cfg, job)
-                else:
-                    self._emit("awaiting", slug=job.slug, ref=str(job.root), prompts=[p.read_text(encoding="utf-8") for p in paths])
+                job = self._prep_one(cfg, source, options)
             except (Exception, SystemExit) as err:
                 self._fail(err, job.slug if job else None)
+
+        return self._launch(work)
+
+    def start_batch(self, sources, options):
+        """queue several files, transcribe each back to back. api jobs finish; manual
+        jobs land ready in the jobs list to paste at your leisure."""
+        sources = [str(s) for s in (sources or [])]
+        if len(sources) < 2:
+            return self.start(sources[0], options) if sources else {"error": "no files"}
+        options = dict(options or {})
+        problem = self._check_api_key(options)
+        if problem:
+            return {"error": problem}
+        cfg = self._config(options)
+        try:
+            media.find_tool("ffmpeg", cfg.paths.ffmpeg)
+        except media.MediaError as err:
+            return {"error": str(err)}
+        self._save_prefs(options)
+
+        def work():
+            total = len(sources)
+            self._emit("batch_start", total=total)
+            done = 0
+            for index, source in enumerate(sources, start=1):
+                if self._cancel.is_set():
+                    break
+                name = Path(source).name
+                self._emit("batch_item", index=index, total=total, name=name)
+                try:
+                    self._prep_one(cfg, source, dict(options), batch=True)
+                    done += 1
+                except InterruptedError:
+                    break
+                except (Exception, SystemExit) as err:
+                    self._emit("log", line=f"{name} failed: {err}")
+            self._emit("batch_done", done=done, total=total)
 
         return self._launch(work)
 

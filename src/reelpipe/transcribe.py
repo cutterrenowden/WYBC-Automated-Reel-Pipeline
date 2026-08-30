@@ -38,32 +38,49 @@ def pick_backend(name="auto"):
     return name
 
 
-def transcribe(cfg, audio_path, duration=0.0):
+def transcribe(cfg, audio_path, duration=0.0, progress=None, should_cancel=None):
     backend = pick_backend(cfg.asr.backend)
     language = cfg.asr.language or None
     if backend == "mlx":
-        segments, detected = _mlx(cfg.asr.model, audio_path, language)
+        segments, detected = _mlx(cfg.asr.model, audio_path, language, should_cancel)
     else:
-        segments, detected = _faster_whisper(cfg, audio_path, language)
+        segments, detected = _faster_whisper(cfg, audio_path, language, duration, progress, should_cancel)
     total = duration or (segments[-1].end if segments else 0.0)
     return Transcript(str(audio_path), total, detected or (language or ""), segments)
 
 
-def _mlx(model, audio_path, language):
+def _mlx(model, audio_path, language, should_cancel=None):
     import mlx_whisper
 
+    # mlx runs as one blocking call: honor a cancel on the way in, but there is no
+    # in-flight progress or interrupt hook, so mid-transcription cancel isn't possible here
+    if should_cancel and should_cancel():
+        raise InterruptedError("cancelled")
     repo = model if "/" in model else MLX_REPOS.get(model, f"mlx-community/whisper-{model}")
     result = mlx_whisper.transcribe(str(audio_path), path_or_hf_repo=repo, word_timestamps=True, language=language, verbose=None)
+    if should_cancel and should_cancel():
+        raise InterruptedError("cancelled")
     segments = [_segment(seg["start"], seg["end"], seg["text"], [(w["word"], w["start"], w["end"]) for w in seg.get("words", [])]) for seg in result.get("segments", [])]
     return segments, result.get("language", "")
 
 
-def _faster_whisper(cfg, audio_path, language):
+def _faster_whisper(cfg, audio_path, language, duration=0.0, progress=None, should_cancel=None):
     from faster_whisper import WhisperModel
 
     model = WhisperModel(cfg.asr.model, device=cfg.asr.device, compute_type=cfg.asr.compute_type)
     raw, info = model.transcribe(str(audio_path), word_timestamps=True, language=language, vad_filter=True)
-    segments = [_segment(seg.start, seg.end, seg.text, [(w.word, w.start, w.end) for w in (seg.words or [])]) for seg in raw]
+    total = duration or getattr(info, "duration", 0.0) or 0.0
+    # faster-whisper yields segments lazily, so this loop is where real progress and a
+    # responsive mid-transcription cancel live
+    segments = []
+    for seg in raw:
+        if should_cancel and should_cancel():
+            raise InterruptedError("cancelled")
+        segments.append(_segment(seg.start, seg.end, seg.text, [(w.word, w.start, w.end) for w in (seg.words or [])]))
+        if progress and total:
+            progress(seg.end / total)
+    if progress:
+        progress(1.0)
     return segments, getattr(info, "language", "") or ""
 
 

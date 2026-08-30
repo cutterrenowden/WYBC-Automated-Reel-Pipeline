@@ -72,6 +72,17 @@
         </div>
       </div>
       <div class="settings-group">
+        <div class="block-label">Help</div>
+        <div class="update-row">
+          <span class="setup-meta">Something broke? Send a report or open the log.</span>
+          <div class="update-actions">
+            <button class="btn ghost small" id="report-problem">Report a problem</button>
+            <button class="btn ghost small" id="copy-diag">Copy details</button>
+            <button class="btn ghost small" id="open-log">Open log</button>
+          </div>
+        </div>
+      </div>
+      <div class="settings-group">
         <div class="block-label danger-label">Danger zone</div>
         <div class="danger-zone">
           <div>
@@ -198,7 +209,9 @@
         <div class="running-title" id="run-title">Working&hellip;</div>
         <div class="elapsed" id="elapsed">0:00</div>
       </div>
+      <div id="run-sub" class="run-sub hidden"></div>
       <ol id="stages" class="stages"></ol>
+      <div id="progress" class="progress hidden"><div id="progress-bar"></div></div>
       <pre id="logbox" class="logbox"></pre>
       <div class="actions split">
         <button class="btn ghost small" id="cancel">Cancel after this stage</button>
