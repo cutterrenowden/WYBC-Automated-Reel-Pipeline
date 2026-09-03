@@ -35,8 +35,14 @@ def cut_clip(cfg, source, clip, dest, cues=None, audio_only=False, vertical=Fals
         chains, label = [], "0:v"
         if vertical:
             # biggest 9:16 area that fits. a source narrower than 9:16 (square or
-            # portrait) crops by height, so the width is never larger than the frame
-            crop = f"crop=w='trunc(min(iw,ih*{VERTICAL_W}/{VERTICAL_H})/2)*2':h='trunc(min(ih,iw*{VERTICAL_H}/{VERTICAL_W})/2)*2'"
+            # portrait) crops by height, so the width is never larger than the frame.
+            # crop_x pans along whichever axis has slack: 0 left/top, 0.5 center, 1 right/bottom
+            crop_x = min(1.0, max(0.0, getattr(clip, "crop_x", 0.5)))
+            crop = (
+                f"crop=w='trunc(min(iw,ih*{VERTICAL_W}/{VERTICAL_H})/2)*2'"
+                f":h='trunc(min(ih,iw*{VERTICAL_H}/{VERTICAL_W})/2)*2'"
+                f":x='(iw-ow)*{crop_x:.4f}':y='(ih-oh)*{crop_x:.4f}'"
+            )
             chains.append(f"[{label}]{crop},scale={VERTICAL_W}:{VERTICAL_H}[vc]")
             label = "vc"
         # captions sit higher on vertical clips so platform ui doesn't cover them

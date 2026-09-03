@@ -530,6 +530,51 @@ class Api:
             return {"error": str(err)}
         return {"ok": True, "url": f"{self._job_url(job)}/clips/{dest.name}", "window_start": round(window_start, 3), "window_end": round(window_end, 3), "start": clip.start, "end": clip.end}
 
+    def reframe_frame(self, slug, index):
+        """a still from the source at the clip midpoint, plus the 9:16 box size, so
+        the ui can pan the vertical crop with a real preview."""
+        cfg, job = self._open(slug)
+        clips = anchor.load(job.clips_json)
+        clip = next((c for c in clips if c.index == int(index)), None)
+        if clip is None:
+            return {"error": f"no clip {index}"}
+        info = job.read_meta().get("media", {})
+        if not info.get("has_video", True):
+            return {"error": "audio clips have no video to reframe"}
+        iw, ih = info.get("width") or 1920, info.get("height") or 1080
+        mid = clip.start + clip.duration / 2
+        dest = job.clips_dir / f".reframe_{clip.index:02d}.jpg"
+        try:
+            media.run([media.ffmpeg_bin(cfg), "-y", "-v", "error", "-ss", f"{mid:.3f}", "-i", str(job.source), "-frames:v", "1", "-vf", "scale=720:-2", str(dest)])
+        except media.MediaError as err:
+            return {"error": str(err)}
+        box_w = min(iw, ih * cut_mod.VERTICAL_W / cut_mod.VERTICAL_H) / iw
+        box_h = min(ih, iw * cut_mod.VERTICAL_H / cut_mod.VERTICAL_W) / ih
+        return {"ok": True, "url": f"{self._job_url(job)}/clips/{dest.name}?v={self._seq}", "box_w": round(box_w, 4), "box_h": round(box_h, 4), "crop_x": clip.crop_x}
+
+    def reframe_clip(self, slug, index, crop_x):
+        cfg, job = self._open(slug)
+        if self._busy():
+            return {"error": "wait for the current job to finish"}
+        info = job.read_meta().get("media", {})
+        if not info.get("has_video", True) or not cfg.render.vertical:
+            return {"error": "reframing only applies to vertical video clips"}
+        clips = anchor.load(job.clips_json)
+        clip = next((c for c in clips if c.index == int(index)), None)
+        if clip is None:
+            return {"error": f"no clip {index}"}
+        clip.crop_x = min(1.0, max(0.0, float(crop_x)))
+        transcript = Transcript.load(job.transcript_json)
+        words = anchor.words_between(transcript, clip.start, clip.end)
+        cues = subtitles.group(words) if cfg.render.burn_subs else None
+        frame = (info.get("width") or 1920, info.get("height") or 1080)
+        try:
+            cut_mod.cut_clip(cfg, job.source, clip, job.clips_dir / f"{clip.slug}.mp4", cues=cues, vertical=True, frame=frame)
+        except media.MediaError as err:
+            return {"error": str(err)}
+        anchor.save(clips, job.clips_json)
+        return {"ok": True, "clip": self._clip_row(cfg, job, clip)}
+
     def update_clip(self, slug, index, start, end):
         """the splice fixer: new absolute in/out, re-render just that clip."""
         cfg, job = self._open(slug)
@@ -573,7 +618,7 @@ class Api:
         if len(keep) == len(clips):
             return {"error": f"no clip {index}"}
         gone = next(c for c in clips if c.index == int(index))
-        for name in (f"{gone.slug}.mp4", f"{gone.slug}.m4a", f"{gone.slug}.srt", f".thumb_{gone.slug}.jpg"):
+        for name in (f"{gone.slug}.mp4", f"{gone.slug}.m4a", f"{gone.slug}.srt", f".thumb_{gone.slug}.jpg", f".reframe_{gone.index:02d}.jpg"):
             (job.clips_dir / name).unlink(missing_ok=True)
         anchor.save(keep, job.clips_json)
         if keep:

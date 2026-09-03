@@ -35,6 +35,7 @@ class Clip:
     hashtags: list = field(default_factory=list)
     match: float = 0.0
     warnings: list = field(default_factory=list)
+    crop_x: float = 0.5  # vertical crop pan: 0 left, 0.5 center, 1 right
 
     @property
     def duration(self):
@@ -45,11 +46,11 @@ class Clip:
         return f"{self.index:02d}_{slugify(self.title)[:48] or 'clip'}"
 
     def to_dict(self):
-        return {"index": self.index, "title": self.title, "start": round(self.start, 3), "end": round(self.end, 3), "duration": round(self.duration, 3), "score": self.score, "why": self.why, "caption": self.caption, "hashtags": self.hashtags, "match": round(self.match, 3), "warnings": self.warnings, "slug": self.slug}
+        return {"index": self.index, "title": self.title, "start": round(self.start, 3), "end": round(self.end, 3), "duration": round(self.duration, 3), "score": self.score, "why": self.why, "caption": self.caption, "hashtags": self.hashtags, "match": round(self.match, 3), "warnings": self.warnings, "crop_x": round(self.crop_x, 4), "slug": self.slug}
 
     @classmethod
     def from_dict(cls, data):
-        return cls(int(data["index"]), data["title"], float(data["start"]), float(data["end"]), float(data.get("score", 0)), data.get("why", ""), data.get("caption", ""), list(data.get("hashtags", [])), float(data.get("match", 0)), list(data.get("warnings", [])))
+        return cls(int(data["index"]), data["title"], float(data["start"]), float(data["end"]), float(data.get("score", 0)), data.get("why", ""), data.get("caption", ""), list(data.get("hashtags", [])), float(data.get("match", 0)), list(data.get("warnings", [])), float(data.get("crop_x", 0.5)))
 
 
 @dataclass

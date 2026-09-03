@@ -716,7 +716,10 @@ function clipCard(clip) {
     </div>
     ${note ? `<div class="clip-note" title="${esc((clip.warnings || []).join("; "))}">${esc(note)}</div>` : ""}
     <div class="clip-foot">
-      <button class="btn small adjust">Adjust splice</button>
+      <div class="clip-foot-btns">
+        <button class="btn small adjust">Adjust splice</button>
+        ${clip.vertical ? `<button class="btn small reframe-btn">Reframe</button>` : ""}
+      </div>
       <div class="clip-files">
         <button class="show-media">${esc((clip.ext || ".mp4").slice(1))}</button>
         <button class="edit-subs">subtitles</button>
@@ -727,6 +730,8 @@ function clipCard(clip) {
 
   const expand = card.querySelector(".expand");
   if (expand) expand.onclick = () => openTheater(card.querySelector("video"));
+  const reframeBtn = card.querySelector(".reframe-btn");
+  if (reframeBtn) reframeBtn.onclick = () => openReframe(clip);
   card.querySelector(".adjust").onclick = () => openEditor(clip);
   card.querySelector(".delete").onclick = () => deleteClip(clip);
   card.querySelector(".show-media").onclick = () => call("reveal", jobRef(), `clips/${clip.slug}${clip.ext || ".mp4"}`);
@@ -769,6 +774,88 @@ function closeTheater() {
   theater.parent.insertBefore(video, theater.next);
   theater.video = theater.parent = theater.next = null;
   $("theater").classList.add("hidden");
+}
+
+/* ---------- reframe (vertical crop position) ---------- */
+
+const reframe = { clip: null, cropX: 0.5, axis: "x", boxFrac: 1 };
+
+async function openReframe(clip) {
+  const data = await call("reframe_frame", jobRef(), clip.index);
+  if (!data) return;
+  if (data.error) { toast(data.error, true); return; }
+  reframe.clip = clip;
+  reframe.cropX = typeof data.crop_x === "number" ? data.crop_x : 0.5;
+  // pan along whichever axis the 9:16 box doesn't already fill
+  reframe.axis = data.box_w < 0.999 ? "x" : "y";
+  reframe.boxFrac = reframe.axis === "x" ? data.box_w : data.box_h;
+  $("rf-title").textContent = `${String(clip.index).padStart(2, "0")}  ${clip.title}`;
+  const img = $("rf-img");
+  img.onload = () => { placeReframeBox(); };
+  img.src = data.url;
+  $("reframe").classList.remove("hidden");
+}
+
+function placeReframeBox() {
+  const stage = $("rf-stage"), box = $("rf-box");
+  const w = stage.clientWidth, h = stage.clientHeight;
+  if (reframe.axis === "x") {
+    box.style.width = `${reframe.boxFrac * 100}%`;
+    box.style.height = "100%";
+    box.style.top = "0";
+    box.style.left = `${reframe.cropX * (1 - reframe.boxFrac) * 100}%`;
+  } else {
+    box.style.height = `${reframe.boxFrac * 100}%`;
+    box.style.width = "100%";
+    box.style.left = "0";
+    box.style.top = `${reframe.cropX * (1 - reframe.boxFrac) * 100}%`;
+  }
+}
+
+function closeReframe() {
+  $("reframe").classList.add("hidden");
+  reframe.clip = null;
+}
+
+function wireReframe() {
+  $("rf-close").onclick = closeReframe;
+  $("reframe").addEventListener("mousedown", (e) => { if (e.target === $("reframe")) closeReframe(); });
+
+  const box = $("rf-box");
+  let dragging = false;
+  const moveTo = (e) => {
+    const rect = $("rf-stage").getBoundingClientRect();
+    const frac = reframe.axis === "x"
+      ? (e.clientX - rect.left) / rect.width
+      : (e.clientY - rect.top) / rect.height;
+    // frac is where the pointer is; center the box on it, then clamp to 0..1 pan
+    const centered = (frac - reframe.boxFrac / 2) / (1 - reframe.boxFrac);
+    reframe.cropX = Math.max(0, Math.min(1, centered));
+    placeReframeBox();
+  };
+  box.addEventListener("pointerdown", (e) => { e.preventDefault(); dragging = true; box.setPointerCapture(e.pointerId); });
+  box.addEventListener("pointermove", (e) => { if (dragging) moveTo(e); });
+  box.addEventListener("pointerup", (e) => { dragging = false; box.releasePointerCapture(e.pointerId); });
+  $("rf-stage").addEventListener("click", (e) => { if (e.target !== box && !box.contains(e.target)) moveTo(e); });
+
+  $("rf-save").onclick = async () => {
+    const button = $("rf-save");
+    button.disabled = true;
+    button.innerHTML = 'Re-cutting<span class="dots"></span>';
+    const result = await call("reframe_clip", jobRef(), reframe.clip.index, reframe.cropX);
+    button.disabled = false;
+    button.textContent = "Save & re-cut";
+    if (!result) return;
+    if (result.error) { toast(result.error, true); return; }
+    const fresh = result.clip;
+    state.vcache[fresh.index] = (state.vcache[fresh.index] || 0) + 1;
+    const position = state.results.clips.findIndex((c) => c.index === fresh.index);
+    if (position >= 0) state.results.clips[position] = fresh;
+    const card = document.querySelector(`.clip-card[data-index="${fresh.index}"]`);
+    if (card) card.replaceWith(clipCard(fresh));
+    closeReframe();
+    toast(`Clip ${fresh.index} reframed.`);
+  };
 }
 
 /* ---------- subtitle text editor ---------- */
@@ -929,6 +1016,7 @@ function wireEditor() {
     if (e.key !== "Escape") return;
     if (theater.video) closeTheater();
     else if (confirmResolve) settleConfirm(false);
+    else if (reframe.clip) closeReframe();
     else if (subedit.clip) closeSubEditor();
     else if (editor.clip) closeEditor();
   });
@@ -1082,6 +1170,7 @@ async function goHome() {
 function wireStatic() {
   wireHome();
   wireEditor();
+  wireReframe();
   $("uninstall").onclick = uninstallApp;
   $("update-check").onclick = () => checkUpdate(false);
   $("update-get").onclick = () => { if (updateUrl) call("open_external", updateUrl); };

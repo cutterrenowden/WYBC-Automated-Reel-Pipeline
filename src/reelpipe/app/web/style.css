@@ -433,6 +433,36 @@ input:focus, textarea:focus { outline: 2px solid rgba(44, 102, 242, 0.35); borde
   text-overflow: ellipsis;
 }
 
+.clip-foot-btns { display: flex; gap: 8px; }
+
+.rf-stage {
+  position: relative;
+  width: 100%;
+  line-height: 0;
+  background: #000;
+  user-select: none;
+  touch-action: none;
+}
+.rf-stage img { width: 100%; height: auto; display: block; }
+.rf-box {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.5);
+  cursor: grab;
+}
+.rf-box:active { cursor: grabbing; }
+.rf-grip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+}
+
 .clip-foot {
   margin-top: auto;
   padding-top: 12px;

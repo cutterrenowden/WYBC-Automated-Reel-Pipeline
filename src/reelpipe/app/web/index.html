@@ -330,6 +330,27 @@
   </div>
 </div>
 
+<!-- reframe: drag the 9:16 box to choose the vertical crop -->
+<div id="reframe" class="editor hidden">
+  <div class="editor-panel">
+    <div class="editor-head">
+      <div>
+        <b id="rf-title"></b>
+        <div class="ed-sub">Drag the box to choose what stays in the vertical clip.</div>
+      </div>
+      <button class="btn ghost small" id="rf-close">Close</button>
+    </div>
+    <div id="rf-stage" class="rf-stage">
+      <img id="rf-img" alt="">
+      <div id="rf-box" class="rf-box"><div class="rf-grip"></div></div>
+    </div>
+    <div id="rf-status" class="ed-status"></div>
+    <div class="ed-actions end">
+      <button class="btn primary" id="rf-save">Save &amp; re-cut</button>
+    </div>
+  </div>
+</div>
+
 <!-- confirm dialog -->
 <div id="confirm" class="editor hidden">
   <div class="confirm-panel">

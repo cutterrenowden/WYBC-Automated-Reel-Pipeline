@@ -426,3 +426,30 @@ def test_report_url_stays_short(tmp_path):
 def test_paste_text_returns_dict(api):
     out = api.paste_text()
     assert isinstance(out, dict) and "text" in out
+
+
+def test_reframe_pans_the_vertical_crop(api, tmp_path):
+    video = make_video(tmp_path / "wide.mp4")
+    assert api.start(str(video), {"llm_mode": "manual", "clips_count": 2, "render_vertical": True}) == {"ok": True}
+    wait(api)
+    slug = events(api, "awaiting")[0]["slug"]
+    assert api.submit_responses(slug, [RESPONSE]) == {"ok": True}
+    wait(api)
+    results = events(api, "done")[-1]["results"]
+    assert all(c["vertical"] for c in results["clips"])
+    idx = results["clips"][0]["index"]
+
+    frame = api.reframe_frame(slug, idx)
+    assert frame.get("ok") and 0 < frame["box_w"] < 1  # wide source pans horizontally
+
+    out = api.reframe_clip(slug, idx, 0.0)   # hard left
+    assert out.get("ok"), out
+    assert out["clip"]["crop_x"] == 0.0
+    mp4 = tmp_path / "out" / "video" / slug / "clips" / f"{out['clip']['slug']}.mp4"
+    dims = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=s=x:p=0", str(mp4)], capture_output=True, text=True, check=True)
+    assert dims.stdout.strip() == "1080x1920", "still a valid vertical clip after panning"
+
+    # crop_x persists in clips.json and survives a reload
+    from reelpipe import anchor
+    saved = anchor.load(tmp_path / "out" / "video" / slug / "clips.json")
+    assert next(c for c in saved if c.index == idx).crop_x == 0.0
